@@ -12,6 +12,7 @@ import {
   Droplet,
   Calendar,
   ChevronRight,
+  ChevronLeft,
   TrendingDown,
   Loader2,
   Utensils,
@@ -64,39 +65,35 @@ const getDateKey = (date: Date = new Date()) => {
   return date.toISOString().split('T')[0]
 }
 
-// Calcula a data real para um dia da semana baseado na semana da dieta
-const getDateForDayOfWeek = (dayOfWeek: string, weekNumber: number, year: number): Date => {
-  // Encontrar o primeiro dia do ano
-  const firstDayOfYear = new Date(year, 0, 1)
-
-  // Calcular o primeiro dia da semana especificada (ISO week starts on Monday)
-  const daysOffset = (weekNumber - 1) * 7
-  const firstDayOfWeek = new Date(firstDayOfYear)
-
-  // Ajustar para segunda-feira da primeira semana
-  const dayOfWeekFirstDay = firstDayOfYear.getDay()
-  const daysToMonday = dayOfWeekFirstDay === 0 ? 1 : (dayOfWeekFirstDay === 1 ? 0 : 8 - dayOfWeekFirstDay)
-  firstDayOfWeek.setDate(firstDayOfYear.getDate() + daysToMonday + daysOffset)
-
-  // Mapear dia da semana para offset
-  const dayOffsets: Record<string, number> = {
-    'segunda': 0,
-    'terca': 1,
-    'quarta': 2,
-    'quinta': 3,
-    'sexta': 4,
-    'sabado': 5,
-    'domingo': 6
-  }
-
-  const result = new Date(firstDayOfWeek)
-  result.setDate(firstDayOfWeek.getDate() + (dayOffsets[dayOfWeek] || 0))
-  return result
-}
-
 // Formata data para exibição
 const formatDateDisplay = (date: Date): string => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+// Obter dia da semana em português
+const getDayOfWeekKey = (date: Date): string => {
+  const days = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado']
+  return days[date.getDay()]
+}
+
+// Obter nome curto do dia
+const getDayShortName = (date: Date): string => {
+  const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+  return days[date.getDay()]
+}
+
+// Gerar array de datas para exibição (7 dias centrados em hoje)
+const generateDateRange = (centerDate: Date, offset: number = 0): Date[] => {
+  const dates: Date[] = []
+  const startDate = new Date(centerDate)
+  startDate.setDate(startDate.getDate() + offset - 3) // 3 dias antes até 3 dias depois
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + i)
+    dates.push(date)
+  }
+  return dates
 }
 
 export function DietView() {
@@ -106,6 +103,10 @@ export function DietView() {
 
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null)
   const [showAllMilestones, setShowAllMilestones] = useState(false)
+
+  // Estado para navegação por data (baseado em hoje)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [weekOffset, setWeekOffset] = useState(0)
 
   // Estado para registro de refeições
   const [showMealLogModal, setShowMealLogModal] = useState(false)
@@ -127,17 +128,20 @@ export function DietView() {
   const [isSwapping, setIsSwapping] = useState(false)
   const [swapSuggestion, setSwapSuggestion] = useState<FoodItem | null>(null)
 
-  // Calcular a data real do dia selecionado
-  const selectedDayDate = currentDiet
-    ? getDateForDayOfWeek(selectedDay, currentDiet.weekNumber, currentDiet.year)
-    : new Date()
-  const selectedDayDateKey = getDateKey(selectedDayDate)
+  // Gerar datas para exibição no carrossel
+  const today = new Date()
+  const visibleDates = generateDateRange(today, weekOffset * 7)
+  const selectedDayDateKey = getDateKey(selectedDate)
+  const isToday = getDateKey(selectedDate) === getDateKey(today)
+
+  // Obter o dia da semana correspondente para a dieta
+  const selectedDayOfWeek = getDayOfWeekKey(selectedDate)
 
   // Carregar consumo do dia selecionado do localStorage
   useEffect(() => {
     if (!currentDiet) return
 
-    const dateKey = getDateKey(getDateForDayOfWeek(selectedDay, currentDiet.weekNumber, currentDiet.year))
+    const dateKey = getDateKey(selectedDate)
     const stored = localStorage.getItem(`consumption_${dateKey}`)
 
     if (stored) {
@@ -158,7 +162,7 @@ export function DietView() {
         fatGoal: nutritionTargets.fat
       })
     }
-  }, [nutritionTargets, currentDiet?.userId, selectedDay, currentDiet?.weekNumber, currentDiet?.year])
+  }, [nutritionTargets, currentDiet?.userId, selectedDate])
 
   // Salvar consumo no localStorage
   const saveConsumption = (consumption: DailyConsumption) => {
@@ -244,7 +248,7 @@ export function DietView() {
 
     const mealLog: MealLog = {
       id: `log_${Date.now()}`,
-      date: selectedDayDate,
+      date: selectedDate,
       mealName: selectedMealForLog.name,
       foods: [],
       totalCalories: 0,
@@ -454,7 +458,7 @@ export function DietView() {
     )
   }
 
-  const selectedDayData = currentDiet.days.find(d => d.dayOfWeek === selectedDay) || currentDiet.days[0]
+  const selectedDayData = currentDiet.days.find(d => d.dayOfWeek === selectedDayOfWeek) || currentDiet.days[0]
   const isLosing = (dietGoal?.currentWeight || 0) > (dietGoal?.targetWeight || 0)
 
   const getMacroPercentage = (current: number, target: number) => {
@@ -562,49 +566,89 @@ export function DietView() {
 
       {/* Conteúdo principal */}
       <div className="max-w-4xl mx-auto px-4 -mt-14">
-        {/* Seletor de dias */}
+        {/* Seletor de dias com navegação */}
         <div className="bg-gray-800 rounded-2xl p-2 shadow-xl mb-6">
-          <div className="flex gap-1 overflow-x-auto pb-1">
-            {DAYS_OF_WEEK.map((day) => {
-              const dayData = currentDiet.days.find(d => d.dayOfWeek === day.key)
-              const isSelected = selectedDay === day.key
-              const dayDate = getDateForDayOfWeek(day.key, currentDiet.weekNumber, currentDiet.year)
-              const isToday = getDateKey(dayDate) === getDateKey(new Date())
+          <div className="flex items-center gap-1">
+            {/* Botão voltar semana */}
+            <button
+              onClick={() => setWeekOffset(prev => prev - 1)}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              title="Semana anterior"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-400" />
+            </button>
 
-              return (
-                <button
-                  key={day.key}
-                  onClick={() => dispatch({ type: 'SET_SELECTED_DAY', payload: day.key })}
-                  className={`
-                    flex-1 min-w-[60px] py-3 px-2 rounded-xl transition-all
-                    ${isSelected
-                      ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-lg'
-                      : 'hover:bg-gray-700 text-gray-400'
-                    }
-                  `}
-                >
-                  <p className={`text-xs ${isSelected ? 'text-primary-100' : 'text-gray-500'}`}>
-                    {day.short}
-                  </p>
-                  <p className={`text-lg font-bold ${isSelected ? 'text-white' : 'text-gray-300'}`}>
-                    {formatDateDisplay(dayDate)}
-                  </p>
-                  {isToday && (
-                    <div className={`w-1.5 h-1.5 rounded-full mx-auto mt-1 ${isSelected ? 'bg-white' : 'bg-primary-500'}`} />
-                  )}
-                </button>
-              )
-            })}
+            {/* Dias */}
+            <div className="flex-1 flex gap-1 overflow-x-auto pb-1">
+              {visibleDates.map((date) => {
+                const dateKey = getDateKey(date)
+                const isSelected = dateKey === getDateKey(selectedDate)
+                const isDayToday = dateKey === getDateKey(today)
+
+                return (
+                  <button
+                    key={dateKey}
+                    onClick={() => setSelectedDate(new Date(date))}
+                    className={`
+                      flex-1 min-w-[50px] py-3 px-1 rounded-xl transition-all
+                      ${isSelected
+                        ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-lg'
+                        : isDayToday
+                          ? 'bg-primary-500/20 hover:bg-primary-500/30 text-primary-400'
+                          : 'hover:bg-gray-700 text-gray-400'
+                      }
+                    `}
+                  >
+                    <p className={`text-xs ${isSelected ? 'text-primary-100' : isDayToday ? 'text-primary-300' : 'text-gray-500'}`}>
+                      {getDayShortName(date)}
+                    </p>
+                    <p className={`text-sm font-bold ${isSelected ? 'text-white' : isDayToday ? 'text-primary-400' : 'text-gray-300'}`}>
+                      {formatDateDisplay(date)}
+                    </p>
+                    {isDayToday && (
+                      <div className={`w-1.5 h-1.5 rounded-full mx-auto mt-1 ${isSelected ? 'bg-white' : 'bg-primary-500'}`} />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Botão avançar semana */}
+            <button
+              onClick={() => setWeekOffset(prev => prev + 1)}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              title="Próxima semana"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
           </div>
+
+          {/* Botão ir para hoje */}
+          {weekOffset !== 0 && (
+            <button
+              onClick={() => {
+                setWeekOffset(0)
+                setSelectedDate(new Date())
+              }}
+              className="w-full mt-2 py-2 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+            >
+              Ir para hoje
+            </button>
+          )}
         </div>
 
         {/* Card de progresso do dia */}
         <Card className="mb-6 overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-gray-800/50 to-gray-700/50">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-white text-lg">
-                {selectedDayData.dayName}
-              </h3>
+              <div>
+                <h3 className="font-bold text-white text-lg">
+                  {selectedDayData.dayName}
+                </h3>
+                <p className="text-sm text-gray-400">
+                  {formatDateDisplay(selectedDate)} {isToday && <span className="text-primary-400">(Hoje)</span>}
+                </p>
+              </div>
               <span className="text-sm text-gray-400">
                 {selectedDayData.totalCalories} / {nutritionTargets?.calories} kcal
               </span>
@@ -664,18 +708,22 @@ export function DietView() {
 
         {/* Lista de refeições */}
         <div className="space-y-4 mb-6">
-          {selectedDayData.meals.map((meal, index) => (
-            <MealCard
-              key={meal.id}
-              meal={meal}
-              index={index}
-              isExpanded={expandedMeal === meal.id}
-              onToggle={() => toggleMeal(meal.id)}
-              onRegisterMeal={() => openMealLogModal(meal)}
-              onSwapFood={openSwapModal}
-              isLogged={isMealLogged(meal.name)}
-            />
-          ))}
+          {selectedDayData.meals.map((meal, index) => {
+            const mealConsumption = dailyConsumption?.mealLogs.find(log => log.mealName === meal.name) || null
+            return (
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                index={index}
+                isExpanded={expandedMeal === meal.id}
+                onToggle={() => toggleMeal(meal.id)}
+                onRegisterMeal={() => openMealLogModal(meal)}
+                onSwapFood={openSwapModal}
+                isLogged={isMealLogged(meal.name)}
+                consumedData={mealConsumption}
+              />
+            )
+          })}
         </div>
 
         {/* Dicas do dia */}
@@ -837,7 +885,7 @@ export function DietView() {
                   Registrar Refeição
                 </h3>
                 <p className="text-sm text-primary-100">
-                  {selectedMealForLog.name} - {formatDateDisplay(selectedDayDate)}
+                  {selectedMealForLog.name} - {formatDateDisplay(selectedDate)}
                 </p>
               </div>
               <button
@@ -1207,9 +1255,10 @@ interface MealCardProps {
   onRegisterMeal: () => void
   onSwapFood: (mealIndex: number, foodIndex: number) => void
   isLogged: boolean
+  consumedData?: MealLog | null
 }
 
-function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFood, isLogged }: MealCardProps) {
+function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFood, isLogged, consumedData }: MealCardProps) {
   const [showSubstitutions, setShowSubstitutions] = useState<number | null>(null)
   const mealEmojis = ['☕', '🍎', '🍽️', '🥪', '🌙', '🌜']
   const mealColors = [
@@ -1221,6 +1270,10 @@ function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFoo
     'from-gray-500/20 to-slate-500/20'
   ]
 
+  // Calcular porcentagem de atingimento
+  const caloriePercentage = consumedData ? Math.round((consumedData.totalCalories / meal.totalCalories) * 100) : 0
+  const isSkipped = consumedData && consumedData.foods.length === 0
+
   return (
     <div
       className={`
@@ -1228,6 +1281,7 @@ function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFoo
         transition-all duration-300
         ${isExpanded ? 'ring-2 ring-primary-500/50' : ''}
         ${isLogged ? 'border-green-500/30' : ''}
+        ${isSkipped ? 'border-red-500/30' : ''}
       `}
     >
       {/* Header clicável */}
@@ -1241,16 +1295,22 @@ function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFoo
             flex items-center justify-center text-2xl relative
           `}>
             {mealEmojis[index % mealEmojis.length]}
-            {isLogged && (
+            {isLogged && !isSkipped && (
               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                 <Check className="w-3 h-3 text-white" />
+              </div>
+            )}
+            {isSkipped && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                <Ban className="w-3 h-3 text-white" />
               </div>
             )}
           </div>
           <div className="flex-1 text-left">
             <h4 className="font-bold text-white flex items-center gap-2">
               {meal.name}
-              {isLogged && <span className="text-xs text-green-400 font-normal">(registrado)</span>}
+              {isSkipped && <span className="text-xs text-red-400 font-normal">(pulado)</span>}
+              {isLogged && !isSkipped && <span className="text-xs text-green-400 font-normal">(registrado)</span>}
             </h4>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <Clock className="w-3 h-3" />
@@ -1260,8 +1320,27 @@ function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFoo
             </div>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-white">{meal.totalCalories}</p>
-            <p className="text-xs text-gray-400">kcal</p>
+            {consumedData && !isSkipped ? (
+              <>
+                <div className="flex items-center gap-1">
+                  <p className="text-lg font-bold text-green-400">{consumedData.totalCalories}</p>
+                  <p className="text-sm text-gray-500">/ {meal.totalCalories}</p>
+                </div>
+                <p className={`text-xs font-medium ${caloriePercentage >= 80 && caloriePercentage <= 120 ? 'text-green-400' : caloriePercentage < 80 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {caloriePercentage}% atingido
+                </p>
+              </>
+            ) : isSkipped ? (
+              <>
+                <p className="text-lg font-bold text-red-400">0</p>
+                <p className="text-xs text-red-400">pulado</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-bold text-white">{meal.totalCalories}</p>
+                <p className="text-xs text-gray-400">kcal</p>
+              </>
+            )}
           </div>
           <ChevronRight className={`
             w-5 h-5 text-gray-400 transition-transform
@@ -1293,16 +1372,37 @@ function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFoo
           {/* Macros da refeição */}
           <div className="flex gap-4 py-3 text-center text-sm">
             <div className="flex-1 p-2 bg-blue-500/10 rounded-lg">
-              <p className="text-blue-400">P</p>
-              <p className="font-bold text-white">{meal.totalProtein}g</p>
+              <p className="text-blue-400">Proteína</p>
+              {consumedData && !isSkipped ? (
+                <>
+                  <p className="font-bold text-white">{consumedData.totalProtein}g <span className="text-gray-500 font-normal">/ {meal.totalProtein}g</span></p>
+                  <p className="text-xs text-blue-400">{Math.round((consumedData.totalProtein / meal.totalProtein) * 100)}%</p>
+                </>
+              ) : (
+                <p className="font-bold text-white">{meal.totalProtein}g</p>
+              )}
             </div>
             <div className="flex-1 p-2 bg-yellow-500/10 rounded-lg">
-              <p className="text-yellow-400">C</p>
-              <p className="font-bold text-white">{meal.totalCarbs}g</p>
+              <p className="text-yellow-400">Carbos</p>
+              {consumedData && !isSkipped ? (
+                <>
+                  <p className="font-bold text-white">{consumedData.totalCarbs}g <span className="text-gray-500 font-normal">/ {meal.totalCarbs}g</span></p>
+                  <p className="text-xs text-yellow-400">{Math.round((consumedData.totalCarbs / meal.totalCarbs) * 100)}%</p>
+                </>
+              ) : (
+                <p className="font-bold text-white">{meal.totalCarbs}g</p>
+              )}
             </div>
             <div className="flex-1 p-2 bg-purple-500/10 rounded-lg">
-              <p className="text-purple-400">G</p>
-              <p className="font-bold text-white">{meal.totalFat}g</p>
+              <p className="text-purple-400">Gordura</p>
+              {consumedData && !isSkipped ? (
+                <>
+                  <p className="font-bold text-white">{consumedData.totalFat}g <span className="text-gray-500 font-normal">/ {meal.totalFat}g</span></p>
+                  <p className="text-xs text-purple-400">{Math.round((consumedData.totalFat / meal.totalFat) * 100)}%</p>
+                </>
+              ) : (
+                <p className="font-bold text-white">{meal.totalFat}g</p>
+              )}
             </div>
           </div>
 
