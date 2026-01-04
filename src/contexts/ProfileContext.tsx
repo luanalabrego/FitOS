@@ -7,6 +7,8 @@ import {
   ReactNode,
   useCallback,
   useMemo,
+  useEffect,
+  useRef,
 } from 'react'
 import {
   UserProfile,
@@ -16,7 +18,6 @@ import {
   Diagnosis,
   Goal,
   ProfilePhoto,
-  BMIInfo,
   ActivityLevel,
 } from '@/types/profile'
 import {
@@ -28,6 +29,8 @@ import {
   calculateFatMass,
   calculateLeanMass,
 } from '@/utils/calculations'
+import { getProfile, saveProfile } from '@/services/profileService'
+import { ensureUser, onAuthChange } from '@/services/authService'
 
 // Ordem dos steps
 const STEP_ORDER: ProfileStep[] = [
@@ -39,8 +42,16 @@ const STEP_ORDER: ProfileStep[] = [
   'resumo',
 ]
 
-// Estado inicial
-const initialState: ProfileFormState = {
+// Estado inicial estendido
+interface ExtendedProfileFormState extends ProfileFormState {
+  userId: string | null
+  isLoading: boolean
+  isSaving: boolean
+  lastSaved: Date | null
+  saveError: string | null
+}
+
+const initialState: ExtendedProfileFormState = {
   currentStep: 'dados_basicos',
   completedSteps: [],
   profile: {
@@ -75,9 +86,14 @@ const initialState: ProfileFormState = {
   },
   errors: {},
   isSubmitting: false,
+  userId: null,
+  isLoading: true,
+  isSaving: false,
+  lastSaved: null,
+  saveError: null,
 }
 
-// Tipos de ações
+// Tipos de ações estendidos
 type ProfileAction =
   | { type: 'SET_STEP'; payload: ProfileStep }
   | { type: 'COMPLETE_STEP'; payload: ProfileStep }
@@ -97,12 +113,17 @@ type ProfileAction =
   | { type: 'RESET_FORM' }
   | { type: 'LOAD_PROFILE'; payload: Partial<UserProfile> }
   | { type: 'COMPLETE_ONBOARDING' }
+  | { type: 'SET_USER_ID'; payload: string }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_SAVING'; payload: boolean }
+  | { type: 'SET_LAST_SAVED'; payload: Date }
+  | { type: 'SET_SAVE_ERROR'; payload: string | null }
 
 // Reducer
 function profileReducer(
-  state: ProfileFormState,
+  state: ExtendedProfileFormState,
   action: ProfileAction
-): ProfileFormState {
+): ExtendedProfileFormState {
   switch (action.type) {
     case 'SET_STEP':
       return {
@@ -244,7 +265,6 @@ function profileReducer(
         bc.gender
       )
 
-      // Estimativa de gordura corporal se não foi informada
       let bodyFatPercentage = bc.bodyFatPercentage
       if (!bodyFatPercentage && bc.inputMethod === 'formula') {
         bodyFatPercentage = estimateBodyFatFromBMI(bmi, bc.age, bc.gender)
@@ -275,7 +295,11 @@ function profileReducer(
     }
 
     case 'RESET_FORM':
-      return initialState
+      return {
+        ...initialState,
+        userId: state.userId,
+        isLoading: false,
+      }
 
     case 'LOAD_PROFILE':
       return {
@@ -284,6 +308,7 @@ function profileReducer(
           ...state.profile,
           ...action.payload,
         },
+        isLoading: false,
       }
 
     case 'COMPLETE_ONBOARDING':
@@ -296,6 +321,37 @@ function profileReducer(
         },
       }
 
+    case 'SET_USER_ID':
+      return {
+        ...state,
+        userId: action.payload,
+      }
+
+    case 'SET_LOADING':
+      return {
+        ...state,
+        isLoading: action.payload,
+      }
+
+    case 'SET_SAVING':
+      return {
+        ...state,
+        isSaving: action.payload,
+      }
+
+    case 'SET_LAST_SAVED':
+      return {
+        ...state,
+        lastSaved: action.payload,
+        saveError: null,
+      }
+
+    case 'SET_SAVE_ERROR':
+      return {
+        ...state,
+        saveError: action.payload,
+      }
+
     default:
       return state
   }
@@ -303,7 +359,7 @@ function profileReducer(
 
 // Context
 interface ProfileContextValue {
-  state: ProfileFormState
+  state: ExtendedProfileFormState
   // Navegação
   goToStep: (step: ProfileStep) => void
   nextStep: () => void
@@ -329,9 +385,11 @@ interface ProfileContextValue {
   setErrors: (errors: Record<string, string>) => void
   clearErrors: () => void
   resetForm: () => void
-  completeOnboarding: () => void
+  completeOnboarding: () => Promise<void>
   // Calculadoras
   calculateDailyCalories: (activityLevel: ActivityLevel) => number | null
+  // Firebase
+  saveNow: () => Promise<void>
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null)
@@ -343,6 +401,113 @@ interface ProfileProviderProps {
 
 export function ProfileProvider({ children }: ProfileProviderProps) {
   const [state, dispatch] = useReducer(profileReducer, initialState)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastProfileRef = useRef<string>('')
+
+  // Inicializar autenticação e carregar perfil
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined
+
+    const initAuth = async () => {
+      try {
+        // Garantir que temos um usuário (anônimo se necessário)
+        const userId = await ensureUser()
+        dispatch({ type: 'SET_USER_ID', payload: userId })
+
+        // Carregar perfil existente
+        const existingProfile = await getProfile(userId)
+        if (existingProfile) {
+          dispatch({ type: 'LOAD_PROFILE', payload: existingProfile })
+
+          // Se o onboarding foi completado, ir para o resumo
+          if (existingProfile.onboardingCompleted) {
+            dispatch({ type: 'SET_STEP', payload: 'resumo' })
+            // Marcar todos os steps como completados
+            STEP_ORDER.slice(0, -1).forEach((step) => {
+              dispatch({ type: 'COMPLETE_STEP', payload: step })
+            })
+          }
+        } else {
+          dispatch({ type: 'SET_LOADING', payload: false })
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar:', error)
+        dispatch({ type: 'SET_LOADING', payload: false })
+        dispatch({ type: 'SET_SAVE_ERROR', payload: 'Erro ao conectar. Seus dados serão salvos localmente.' })
+      }
+    }
+
+    // Observar mudanças de autenticação
+    unsubscribe = onAuthChange((user) => {
+      if (user) {
+        dispatch({ type: 'SET_USER_ID', payload: user.uid })
+      }
+    })
+
+    initAuth()
+
+    return () => {
+      unsubscribe?.()
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Auto-save com debounce quando o perfil muda
+  useEffect(() => {
+    const profileString = JSON.stringify(state.profile)
+
+    // Evitar salvar se nada mudou ou se ainda está carregando
+    if (profileString === lastProfileRef.current || state.isLoading || !state.userId) {
+      return
+    }
+
+    lastProfileRef.current = profileString
+
+    // Cancelar timeout anterior
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Debounce de 2 segundos
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (!state.userId) return
+
+      dispatch({ type: 'SET_SAVING', payload: true })
+      try {
+        await saveProfile(state.userId, state.profile)
+        dispatch({ type: 'SET_LAST_SAVED', payload: new Date() })
+      } catch (error) {
+        console.error('Erro ao salvar:', error)
+        dispatch({ type: 'SET_SAVE_ERROR', payload: 'Erro ao salvar. Tentando novamente...' })
+      } finally {
+        dispatch({ type: 'SET_SAVING', payload: false })
+      }
+    }, 2000)
+  }, [state.profile, state.userId, state.isLoading])
+
+  // Salvar imediatamente
+  const saveNow = useCallback(async () => {
+    if (!state.userId) return
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    dispatch({ type: 'SET_SAVING', payload: true })
+    try {
+      await saveProfile(state.userId, state.profile)
+      dispatch({ type: 'SET_LAST_SAVED', payload: new Date() })
+      lastProfileRef.current = JSON.stringify(state.profile)
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+      dispatch({ type: 'SET_SAVE_ERROR', payload: 'Erro ao salvar.' })
+      throw error
+    } finally {
+      dispatch({ type: 'SET_SAVING', payload: false })
+    }
+  }, [state.userId, state.profile])
 
   // Navegação
   const goToStep = useCallback((step: ProfileStep) => {
@@ -438,9 +603,11 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     dispatch({ type: 'RESET_FORM' })
   }, [])
 
-  const completeOnboarding = useCallback(() => {
+  const completeOnboarding = useCallback(async () => {
     dispatch({ type: 'COMPLETE_ONBOARDING' })
-  }, [])
+    // Salvar imediatamente ao completar onboarding
+    await saveNow()
+  }, [saveNow])
 
   // Calculadoras
   const calculateDailyCalories = useCallback(
@@ -476,6 +643,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       resetForm,
       completeOnboarding,
       calculateDailyCalories,
+      saveNow,
     }),
     [
       state,
@@ -500,6 +668,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       resetForm,
       completeOnboarding,
       calculateDailyCalories,
+      saveNow,
     ]
   )
 

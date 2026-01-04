@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, Loader2, Cloud, CloudOff } from 'lucide-react'
 import { useProfile, STEP_ORDER } from '@/contexts/ProfileContext'
 import { Button, ProgressSteps } from '@/components/ui'
 import {
@@ -63,7 +63,9 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
     setErrors,
   } = useProfile()
 
-  const { currentStep, completedSteps, profile, errors } = state
+  const [isCompleting, setIsCompleting] = useState(false)
+
+  const { currentStep, completedSteps, profile, isLoading, isSaving, lastSaved, saveError } = state
 
   const steps = useMemo(
     () =>
@@ -118,9 +120,16 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
     prevStep()
   }, [prevStep])
 
-  const handleComplete = useCallback(() => {
-    completeOnboarding()
-    onComplete?.()
+  const handleComplete = useCallback(async () => {
+    setIsCompleting(true)
+    try {
+      await completeOnboarding()
+      onComplete?.()
+    } catch (error) {
+      console.error('Erro ao finalizar:', error)
+    } finally {
+      setIsCompleting(false)
+    }
   }, [completeOnboarding, onComplete])
 
   const handleStepClick = useCallback(
@@ -158,6 +167,18 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
 
   const isLastStep = currentStep === 'resumo'
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Carregando seu perfil...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
       {/* Header com progresso */}
@@ -186,12 +207,37 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
 
       {/* Footer com navegação */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-lg border-t border-gray-800">
+        {/* Indicador de salvamento */}
+        <div className="max-w-2xl mx-auto px-4 pt-2">
+          <div className="flex items-center justify-center gap-2 text-xs">
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3 h-3 text-primary-500 animate-spin" />
+                <span className="text-gray-400">Salvando...</span>
+              </>
+            ) : saveError ? (
+              <>
+                <CloudOff className="w-3 h-3 text-yellow-500" />
+                <span className="text-yellow-500">{saveError}</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <Cloud className="w-3 h-3 text-primary-500" />
+                <span className="text-gray-500">
+                  Salvo às {lastSaved.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
+
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           {canGoPrev() ? (
             <Button
               variant="ghost"
               icon={ArrowLeft}
               onClick={handlePrev}
+              disabled={isCompleting}
             >
               Voltar
             </Button>
@@ -202,11 +248,13 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
           {isLastStep ? (
             <Button
               variant="primary"
-              icon={Check}
+              icon={isCompleting ? undefined : Check}
               iconPosition="right"
               onClick={handleComplete}
+              loading={isCompleting}
+              disabled={isCompleting}
             >
-              Finalizar
+              {isCompleting ? 'Salvando...' : 'Finalizar'}
             </Button>
           ) : (
             <Button
