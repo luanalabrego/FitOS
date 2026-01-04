@@ -24,9 +24,11 @@ import {
   X,
   Check,
   Plus,
+  Minus,
   ClipboardList,
   PieChart,
-  BarChart3
+  BarChart3,
+  Ban
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { EvolutionView } from './EvolutionView'
@@ -62,6 +64,41 @@ const getDateKey = (date: Date = new Date()) => {
   return date.toISOString().split('T')[0]
 }
 
+// Calcula a data real para um dia da semana baseado na semana da dieta
+const getDateForDayOfWeek = (dayOfWeek: string, weekNumber: number, year: number): Date => {
+  // Encontrar o primeiro dia do ano
+  const firstDayOfYear = new Date(year, 0, 1)
+
+  // Calcular o primeiro dia da semana especificada (ISO week starts on Monday)
+  const daysOffset = (weekNumber - 1) * 7
+  const firstDayOfWeek = new Date(firstDayOfYear)
+
+  // Ajustar para segunda-feira da primeira semana
+  const dayOfWeekFirstDay = firstDayOfYear.getDay()
+  const daysToMonday = dayOfWeekFirstDay === 0 ? 1 : (dayOfWeekFirstDay === 1 ? 0 : 8 - dayOfWeekFirstDay)
+  firstDayOfWeek.setDate(firstDayOfYear.getDate() + daysToMonday + daysOffset)
+
+  // Mapear dia da semana para offset
+  const dayOffsets: Record<string, number> = {
+    'segunda': 0,
+    'terca': 1,
+    'quarta': 2,
+    'quinta': 3,
+    'sexta': 4,
+    'sabado': 5,
+    'domingo': 6
+  }
+
+  const result = new Date(firstDayOfWeek)
+  result.setDate(firstDayOfWeek.getDate() + (dayOffsets[dayOfWeek] || 0))
+  return result
+}
+
+// Formata data para exibição
+const formatDateDisplay = (date: Date): string => {
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
 export function DietView() {
   const { state, dispatch, startEditing, regenerateDiet } = useNutrition()
   const { nutritionProfile, selectedDay, isGeneratingDiet } = state
@@ -80,6 +117,7 @@ export function DietView() {
   const [selectedFoods, setSelectedFoods] = useState<ConsumedFood[]>([])
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [evolutionRefreshTrigger, setEvolutionRefreshTrigger] = useState(0)
+  const [quantityMultipliers, setQuantityMultipliers] = useState<Record<string, number>>({})
 
   // Estado para troca de alimento via IA
   const [showSwapModal, setShowSwapModal] = useState(false)
@@ -89,15 +127,25 @@ export function DietView() {
   const [isSwapping, setIsSwapping] = useState(false)
   const [swapSuggestion, setSwapSuggestion] = useState<FoodItem | null>(null)
 
-  // Carregar consumo do dia do localStorage
+  // Calcular a data real do dia selecionado
+  const selectedDayDate = currentDiet
+    ? getDateForDayOfWeek(selectedDay, currentDiet.weekNumber, currentDiet.year)
+    : new Date()
+  const selectedDayDateKey = getDateKey(selectedDayDate)
+
+  // Carregar consumo do dia selecionado do localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(`consumption_${getDateKey()}`)
+    if (!currentDiet) return
+
+    const dateKey = getDateKey(getDateForDayOfWeek(selectedDay, currentDiet.weekNumber, currentDiet.year))
+    const stored = localStorage.getItem(`consumption_${dateKey}`)
+
     if (stored) {
       setDailyConsumption(JSON.parse(stored))
     } else if (nutritionTargets) {
       // Inicializar consumo do dia
       setDailyConsumption({
-        date: getDateKey(),
+        date: dateKey,
         userId: currentDiet?.userId || '',
         mealLogs: [],
         totalCalories: 0,
@@ -110,11 +158,11 @@ export function DietView() {
         fatGoal: nutritionTargets.fat
       })
     }
-  }, [nutritionTargets, currentDiet?.userId])
+  }, [nutritionTargets, currentDiet?.userId, selectedDay, currentDiet?.weekNumber, currentDiet?.year])
 
   // Salvar consumo no localStorage
   const saveConsumption = (consumption: DailyConsumption) => {
-    localStorage.setItem(`consumption_${getDateKey()}`, JSON.stringify(consumption))
+    localStorage.setItem(`consumption_${selectedDayDateKey}`, JSON.stringify(consumption))
     setDailyConsumption(consumption)
   }
 
@@ -125,6 +173,7 @@ export function DietView() {
     setShowCustomInput(false)
     setCustomFoodName('')
     setCustomFoodGrams('')
+    setQuantityMultipliers({})
     setShowMealLogModal(true)
   }
 
@@ -135,22 +184,86 @@ export function DietView() {
 
     if (existingIndex >= 0) {
       setSelectedFoods(selectedFoods.filter((_, i) => i !== existingIndex))
+      // Remover multiplicador
+      const newMultipliers = { ...quantityMultipliers }
+      delete newMultipliers[foodData.name]
+      setQuantityMultipliers(newMultipliers)
     } else {
       // Extrair gramas da quantidade (aproximado)
       const gramsMatch = foodData.quantity.match(/(\d+)\s*g/i)
       const grams = gramsMatch ? parseInt(gramsMatch[1]) : 100
+      const multiplier = quantityMultipliers[foodData.name] || 1
 
       setSelectedFoods([...selectedFoods, {
         name: foodData.name,
         quantity: foodData.quantity,
-        grams,
-        calories: foodData.calories,
-        protein: foodData.protein,
-        carbs: foodData.carbs,
-        fat: foodData.fat,
+        grams: Math.round(grams * multiplier),
+        calories: Math.round(foodData.calories * multiplier),
+        protein: Math.round(foodData.protein * multiplier),
+        carbs: Math.round(foodData.carbs * multiplier),
+        fat: Math.round(foodData.fat * multiplier),
         isCustom: false
       }])
+      // Setar multiplicador padrão se não existir
+      if (!quantityMultipliers[foodData.name]) {
+        setQuantityMultipliers({ ...quantityMultipliers, [foodData.name]: 1 })
+      }
     }
+  }
+
+  // Atualizar multiplicador de quantidade
+  const updateQuantityMultiplier = (foodName: string, multiplier: number) => {
+    setQuantityMultipliers({ ...quantityMultipliers, [foodName]: multiplier })
+
+    // Atualizar o alimento já selecionado se existir
+    setSelectedFoods(selectedFoods.map(f => {
+      if (f.name === foodName && !f.isCustom) {
+        // Encontrar o alimento original na refeição
+        const originalFood = selectedMealForLog?.foods.find(mf => mf.name === foodName)
+        if (originalFood) {
+          const gramsMatch = originalFood.quantity.match(/(\d+)\s*g/i)
+          const baseGrams = gramsMatch ? parseInt(gramsMatch[1]) : 100
+
+          return {
+            ...f,
+            grams: Math.round(baseGrams * multiplier),
+            calories: Math.round(originalFood.calories * multiplier),
+            protein: Math.round(originalFood.protein * multiplier),
+            carbs: Math.round(originalFood.carbs * multiplier),
+            fat: Math.round(originalFood.fat * multiplier)
+          }
+        }
+      }
+      return f
+    }))
+  }
+
+  // Registrar que não comeu nada
+  const registerSkippedMeal = () => {
+    if (!selectedMealForLog || !dailyConsumption) return
+
+    const mealLog: MealLog = {
+      id: `log_${Date.now()}`,
+      date: selectedDayDate,
+      mealName: selectedMealForLog.name,
+      foods: [],
+      totalCalories: 0,
+      totalProtein: 0,
+      totalCarbs: 0,
+      totalFat: 0,
+      createdAt: new Date()
+    }
+
+    const updatedConsumption: DailyConsumption = {
+      ...dailyConsumption,
+      mealLogs: [...dailyConsumption.mealLogs, mealLog]
+    }
+
+    saveConsumption(updatedConsumption)
+    setShowMealLogModal(false)
+    setSelectedMealForLog(null)
+    setSelectedFoods([])
+    setEvolutionRefreshTrigger(prev => prev + 1)
   }
 
   // Calcular calorias de alimento customizado via IA
@@ -455,7 +568,8 @@ export function DietView() {
             {DAYS_OF_WEEK.map((day) => {
               const dayData = currentDiet.days.find(d => d.dayOfWeek === day.key)
               const isSelected = selectedDay === day.key
-              const isToday = new Date().getDay() === (DAYS_OF_WEEK.findIndex(d => d.key === day.key) + 1) % 7
+              const dayDate = getDateForDayOfWeek(day.key, currentDiet.weekNumber, currentDiet.year)
+              const isToday = getDateKey(dayDate) === getDateKey(new Date())
 
               return (
                 <button
@@ -473,7 +587,7 @@ export function DietView() {
                     {day.short}
                   </p>
                   <p className={`text-lg font-bold ${isSelected ? 'text-white' : 'text-gray-300'}`}>
-                    {DAYS_OF_WEEK.findIndex(d => d.key === day.key) + 1}
+                    {formatDateDisplay(dayDate)}
                   </p>
                   {isToday && (
                     <div className={`w-1.5 h-1.5 rounded-full mx-auto mt-1 ${isSelected ? 'bg-white' : 'bg-primary-500'}`} />
@@ -722,7 +836,9 @@ export function DietView() {
                   <ClipboardList className="w-5 h-5" />
                   Registrar Refeição
                 </h3>
-                <p className="text-sm text-primary-100">{selectedMealForLog.name}</p>
+                <p className="text-sm text-primary-100">
+                  {selectedMealForLog.name} - {formatDateDisplay(selectedDayDate)}
+                </p>
               </div>
               <button
                 onClick={() => setShowMealLogModal(false)}
@@ -734,63 +850,123 @@ export function DietView() {
 
             {/* Conteúdo do modal */}
             <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {/* Botão Não Comi Nada */}
+              <button
+                onClick={registerSkippedMeal}
+                className="w-full p-3 mb-4 rounded-lg border border-dashed border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400 transition-colors flex items-center justify-center gap-2"
+              >
+                <Ban className="w-5 h-5" />
+                Não comi nada nesta refeição
+              </button>
+
               <p className="text-gray-400 text-sm mb-4">
-                Selecione o que você consumiu nesta refeição:
+                Ou selecione o que você consumiu:
               </p>
 
               {/* Lista de alimentos da dieta */}
               <div className="space-y-3 mb-4">
-                {selectedMealForLog.foods.map((food, index) => (
-                  <div key={index} className="space-y-2">
-                    {/* Alimento principal */}
-                    <button
-                      onClick={() => toggleFoodSelection(food)}
-                      className={`w-full p-3 rounded-lg border transition-all flex items-center justify-between ${
-                        selectedFoods.some(f => f.name === food.name)
-                          ? 'bg-primary-500/20 border-primary-500 text-white'
-                          : 'bg-gray-700/50 border-gray-600 text-gray-300 hover:border-gray-500'
-                      }`}
-                    >
-                      <div className="text-left">
-                        <p className="font-medium">{food.name}</p>
-                        <p className="text-sm text-gray-400">{food.quantity} - {food.calories} kcal</p>
-                      </div>
-                      {selectedFoods.some(f => f.name === food.name) ? (
-                        <Check className="w-5 h-5 text-primary-400" />
-                      ) : (
-                        <Plus className="w-5 h-5 text-gray-500" />
-                      )}
-                    </button>
+                {selectedMealForLog.foods.map((food, index) => {
+                  const isSelected = selectedFoods.some(f => f.name === food.name)
+                  const multiplier = quantityMultipliers[food.name] || 1
 
-                    {/* Alternativas */}
-                    {food.alternatives && food.alternatives.length > 0 && (
-                      <div className="pl-4 space-y-2">
-                        <p className="text-xs text-gray-500">ou escolha uma alternativa:</p>
-                        {food.alternatives.map((alt, altIndex) => (
-                          <button
-                            key={altIndex}
-                            onClick={() => toggleFoodSelection(food, alt)}
-                            className={`w-full p-2 rounded-lg border transition-all flex items-center justify-between text-sm ${
-                              selectedFoods.some(f => f.name === alt.name)
-                                ? 'bg-accent-500/20 border-accent-500 text-white'
-                                : 'bg-gray-700/30 border-gray-600 text-gray-400 hover:border-gray-500'
-                            }`}
-                          >
-                            <div className="text-left">
-                              <p>{alt.name}</p>
-                              <p className="text-xs text-gray-500">{alt.quantity} - {alt.calories} kcal</p>
+                  return (
+                    <div key={index} className="space-y-2">
+                      {/* Alimento principal */}
+                      <div className={`p-3 rounded-lg border transition-all ${
+                        isSelected
+                          ? 'bg-primary-500/20 border-primary-500'
+                          : 'bg-gray-700/50 border-gray-600'
+                      }`}>
+                        <button
+                          onClick={() => toggleFoodSelection(food)}
+                          className="w-full flex items-center justify-between"
+                        >
+                          <div className="text-left">
+                            <p className={`font-medium ${isSelected ? 'text-white' : 'text-gray-300'}`}>{food.name}</p>
+                            <p className="text-sm text-gray-400">
+                              {food.quantity} - {Math.round(food.calories * multiplier)} kcal
+                            </p>
+                          </div>
+                          {isSelected ? (
+                            <Check className="w-5 h-5 text-primary-400" />
+                          ) : (
+                            <Plus className="w-5 h-5 text-gray-500" />
+                          )}
+                        </button>
+
+                        {/* Controle de quantidade quando selecionado */}
+                        {isSelected && (
+                          <div className="mt-3 pt-3 border-t border-gray-600">
+                            <p className="text-xs text-gray-400 mb-2">Ajustar quantidade:</p>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => updateQuantityMultiplier(food.name, Math.max(0.25, multiplier - 0.25))}
+                                className="p-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
+                              >
+                                <Minus className="w-4 h-4 text-white" />
+                              </button>
+                              <div className="flex-1 text-center">
+                                <span className="text-lg font-bold text-white">{Math.round(multiplier * 100)}%</span>
+                                <p className="text-xs text-gray-400">
+                                  ({Math.round(food.calories * multiplier)} kcal)
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => updateQuantityMultiplier(food.name, Math.min(2, multiplier + 0.25))}
+                                className="p-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
+                              >
+                                <Plus className="w-4 h-4 text-white" />
+                              </button>
                             </div>
-                            {selectedFoods.some(f => f.name === alt.name) ? (
-                              <Check className="w-4 h-4 text-accent-400" />
-                            ) : (
-                              <Plus className="w-4 h-4 text-gray-500" />
-                            )}
-                          </button>
-                        ))}
+                            <div className="flex justify-center gap-2 mt-2">
+                              {[0.5, 0.75, 1, 1.25, 1.5].map(preset => (
+                                <button
+                                  key={preset}
+                                  onClick={() => updateQuantityMultiplier(food.name, preset)}
+                                  className={`px-2 py-1 text-xs rounded ${
+                                    multiplier === preset
+                                      ? 'bg-primary-500 text-white'
+                                      : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                                  }`}
+                                >
+                                  {Math.round(preset * 100)}%
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Alternativas */}
+                      {food.alternatives && food.alternatives.length > 0 && (
+                        <div className="pl-4 space-y-2">
+                          <p className="text-xs text-gray-500">ou escolha uma alternativa:</p>
+                          {food.alternatives.map((alt, altIndex) => (
+                            <button
+                              key={altIndex}
+                              onClick={() => toggleFoodSelection(food, alt)}
+                              className={`w-full p-2 rounded-lg border transition-all flex items-center justify-between text-sm ${
+                                selectedFoods.some(f => f.name === alt.name)
+                                  ? 'bg-accent-500/20 border-accent-500 text-white'
+                                  : 'bg-gray-700/30 border-gray-600 text-gray-400 hover:border-gray-500'
+                              }`}
+                            >
+                              <div className="text-left">
+                                <p>{alt.name}</p>
+                                <p className="text-xs text-gray-500">{alt.quantity} - {alt.calories} kcal</p>
+                              </div>
+                              {selectedFoods.some(f => f.name === alt.name) ? (
+                                <Check className="w-4 h-4 text-accent-400" />
+                              ) : (
+                                <Plus className="w-4 h-4 text-gray-500" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Adicionar alimento customizado */}
