@@ -9,3 +9,6 @@ export * from './ui'
 
 // Profile Components
 export * from './profile'
+
+// Home Components
+export { QuickMealSection } from './home/QuickMealSection'
