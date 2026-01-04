@@ -12,7 +12,8 @@ import {
   NutritionTargets,
   WeightProjection,
   WeeklyDiet,
-  DayOfWeek
+  DayOfWeek,
+  FridgeInventory
 } from '@/types/nutrition'
 import { UserProfile } from '@/types/profile'
 import {
@@ -45,6 +46,10 @@ const initialState: NutritionState = {
       mealsPerDay: 5,
       includeSnacks: true,
       mealPrep: false
+    },
+    fridgeInventory: {
+      items: [],
+      useOnlyFridgeItems: false
     },
     isConfigured: false,
     dietHistory: []
@@ -107,6 +112,18 @@ function nutritionReducer(state: NutritionState, action: NutritionAction): Nutri
             ...state.nutritionProfile.mealPlan,
             ...action.payload
           } as MealPlan
+        }
+      }
+
+    case 'UPDATE_FRIDGE_INVENTORY':
+      return {
+        ...state,
+        nutritionProfile: {
+          ...state.nutritionProfile,
+          fridgeInventory: {
+            ...state.nutritionProfile.fridgeInventory,
+            ...action.payload
+          } as FridgeInventory
         }
       }
 
@@ -350,7 +367,8 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
         foodPreferences: state.nutritionProfile.foodPreferences as FoodPreferences,
         dietGoal: state.nutritionProfile.dietGoal as DietGoal,
         mealPlan: state.nutritionProfile.mealPlan as MealPlan,
-        nutritionTargets: targets  // Usar as metas recalculadas
+        nutritionTargets: targets,  // Usar as metas recalculadas
+        fridgeInventory: state.nutritionProfile.fridgeInventory as FridgeInventory
       })
 
       dispatch({ type: 'SET_WEEKLY_DIET', payload: diet })
