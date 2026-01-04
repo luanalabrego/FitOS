@@ -22,11 +22,72 @@ import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firest
 // ============================================
 
 /**
- * Calcula as metas nutricionais baseadas no perfil do usuário e objetivo
+ * Distribuição de macros por estilo de dieta
+ */
+interface MacroDistribution {
+  proteinPerKg: number
+  carbPercent: number
+  fatPercent: number
+  maxCarbs?: number  // Limite máximo de carboidratos em gramas (para low carb/keto)
+  minFatPercent?: number  // Mínimo de gordura em % (para keto)
+}
+
+function getMacroDistributionByDietStyle(
+  dietStyle: string,
+  goalType: string
+): MacroDistribution {
+  // Distribuições base por estilo de dieta
+  const distributions: Record<string, MacroDistribution> = {
+    tradicional: {
+      proteinPerKg: goalType === 'ganho_massa' ? 2.0 : goalType === 'perda_peso' ? 2.2 : 1.6,
+      carbPercent: goalType === 'ganho_massa' ? 0.50 : goalType === 'perda_peso' ? 0.35 : 0.45,
+      fatPercent: goalType === 'ganho_massa' ? 0.25 : goalType === 'perda_peso' ? 0.30 : 0.25
+    },
+    cetogenica: {
+      proteinPerKg: 1.8,  // Moderada para não sair da cetose
+      carbPercent: 0.05,  // Máximo 5% das calorias
+      fatPercent: 0.75,   // 70-75% das calorias de gordura
+      maxCarbs: 25,       // Máximo 25g para manter cetose
+      minFatPercent: 0.70
+    },
+    low_carb: {
+      proteinPerKg: goalType === 'ganho_massa' ? 2.2 : 2.0,
+      carbPercent: 0.20,  // ~20% das calorias
+      fatPercent: 0.45,   // ~45% das calorias
+      maxCarbs: 100       // Máximo 100g de carbs
+    },
+    mediterranea: {
+      proteinPerKg: 1.6,
+      carbPercent: 0.40,  // Carboidratos de grãos integrais e legumes
+      fatPercent: 0.35    // Gorduras boas (azeite, peixes)
+    },
+    vegetariana: {
+      proteinPerKg: goalType === 'ganho_massa' ? 2.2 : 1.8,  // Mais proteína para compensar
+      carbPercent: 0.50,
+      fatPercent: 0.25
+    },
+    vegana: {
+      proteinPerKg: goalType === 'ganho_massa' ? 2.4 : 2.0,  // Mais proteína ainda
+      carbPercent: 0.50,
+      fatPercent: 0.25
+    },
+    flexivel: {
+      proteinPerKg: goalType === 'ganho_massa' ? 2.0 : goalType === 'perda_peso' ? 2.2 : 1.8,
+      carbPercent: 0.40,
+      fatPercent: 0.30
+    }
+  }
+
+  return distributions[dietStyle] || distributions.tradicional
+}
+
+/**
+ * Calcula as metas nutricionais baseadas no perfil do usuário, objetivo E estilo de dieta
  */
 export function calculateNutritionTargets(
   userProfile: UserProfile,
-  dietGoal: DietGoal
+  dietGoal: DietGoal,
+  dietStyle: string = 'tradicional'
 ): NutritionTargets {
   const { bodyComposition } = userProfile
   const tdee = bodyComposition.dailyMetabolism || bodyComposition.basalMetabolism || 2000
@@ -54,40 +115,63 @@ export function calculateNutritionTargets(
     targetCalories = Math.max(targetCalories, minCalories)
   }
 
-  // Calcular macros baseado no objetivo e peso
+  // Obter distribuição de macros baseada no estilo de dieta
+  const macroDistribution = getMacroDistributionByDietStyle(dietStyle, dietGoal.type)
   const weight = bodyComposition.currentWeight
-  let proteinPerKg = 1.6 // padrão
-  let carbPercent = 0.45
-  let fatPercent = 0.25
 
-  if (dietGoal.type === 'ganho_massa') {
-    proteinPerKg = 2.0
-    carbPercent = 0.50
-    fatPercent = 0.25
-  } else if (dietGoal.type === 'perda_peso') {
-    proteinPerKg = 2.2 // Mais proteína para preservar massa magra
-    carbPercent = 0.35
-    fatPercent = 0.30
-  } else if (dietGoal.type === 'recomposicao') {
-    proteinPerKg = 2.4
-    carbPercent = 0.40
-    fatPercent = 0.25
+  let protein: number
+  let carbs: number
+  let fat: number
+  let proteinPercent: number
+  let carbsPercent: number
+  let fatPercent: number
+
+  if (dietStyle === 'cetogenica') {
+    // Cálculo específico para dieta cetogênica
+    fat = Math.round((targetCalories * 0.75) / 9)
+    protein = Math.round((targetCalories * 0.20) / 4)
+    carbs = Math.min(25, Math.round((targetCalories * 0.05) / 4))  // Máximo 25g
+
+    fatPercent = 75
+    proteinPercent = 20
+    carbsPercent = 5
+  } else if (dietStyle === 'low_carb') {
+    // Cálculo para low carb
+    carbs = Math.min(macroDistribution.maxCarbs || 100, Math.round((targetCalories * 0.20) / 4))
+    protein = Math.round(weight * macroDistribution.proteinPerKg)
+
+    const carbCalories = carbs * 4
+    const proteinCalories = protein * 4
+    const remainingCalories = targetCalories - carbCalories - proteinCalories
+    fat = Math.round(remainingCalories / 9)
+
+    carbsPercent = Math.round((carbCalories / targetCalories) * 100)
+    proteinPercent = Math.round((proteinCalories / targetCalories) * 100)
+    fatPercent = 100 - carbsPercent - proteinPercent
+  } else {
+    // Cálculo padrão para outros estilos
+    protein = Math.round(weight * macroDistribution.proteinPerKg)
+    const proteinCalories = protein * 4
+    proteinPercent = Math.round((proteinCalories / targetCalories) * 100)
+
+    // Ajustar carbs e gordura para o restante das calorias
+    const remainingPercent = 1 - (proteinCalories / targetCalories)
+    const totalMacroPercent = macroDistribution.carbPercent + macroDistribution.fatPercent
+
+    carbsPercent = Math.round((macroDistribution.carbPercent / totalMacroPercent) * remainingPercent * 100)
+    fatPercent = 100 - proteinPercent - carbsPercent
+
+    carbs = Math.round((targetCalories * carbsPercent / 100) / 4)
+    fat = Math.round((targetCalories * fatPercent / 100) / 9)
   }
 
-  const protein = Math.round(weight * proteinPerKg)
-  const proteinCalories = protein * 4
-  const proteinPercent = proteinCalories / targetCalories
-
-  // Ajustar carbs e gordura para o restante das calorias
-  const remainingPercent = 1 - proteinPercent
-  const adjustedCarbPercent = (carbPercent / (carbPercent + fatPercent)) * remainingPercent
-  const adjustedFatPercent = remainingPercent - adjustedCarbPercent
-
-  const carbs = Math.round((targetCalories * adjustedCarbPercent) / 4)
-  const fat = Math.round((targetCalories * adjustedFatPercent) / 9)
-
-  // Fibras baseadas nas calorias (14g por 1000kcal é a recomendação)
-  const fiber = Math.round((targetCalories / 1000) * 14)
+  // Fibras baseadas nas calorias e estilo
+  let fiber = Math.round((targetCalories / 1000) * 14)
+  if (dietStyle === 'cetogenica') {
+    fiber = Math.min(fiber, 20)  // Menos fibra na keto para não ultrapassar carbs
+  } else if (dietStyle === 'vegetariana' || dietStyle === 'vegana') {
+    fiber = Math.round(fiber * 1.3)  // Mais fibra em dietas plant-based
+  }
 
   // Água baseada no peso (35ml por kg)
   const water = Math.round((weight * 35) / 1000 * 10) / 10
@@ -97,9 +181,9 @@ export function calculateNutritionTargets(
     protein,
     carbs,
     fat,
-    proteinPercent: Math.round(proteinPercent * 100),
-    carbsPercent: Math.round(adjustedCarbPercent * 100),
-    fatPercent: Math.round(adjustedFatPercent * 100),
+    proteinPercent,
+    carbsPercent,
+    fatPercent,
     fiber,
     water
   }

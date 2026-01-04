@@ -293,11 +293,18 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
     dispatch({ type: 'SET_STEP', payload: step })
   }
 
-  // Calcular metas nutricionais
+  // Calcular metas nutricionais baseadas no estilo de dieta
   const calculateTargets = () => {
     if (!userProfile || !state.nutritionProfile.dietGoal) return
 
-    const targets = calculateNutritionTargets(userProfile, state.nutritionProfile.dietGoal as DietGoal)
+    // Pegar o estilo de dieta das preferências
+    const dietStyle = state.nutritionProfile.foodPreferences?.dietStyle || 'tradicional'
+
+    const targets = calculateNutritionTargets(
+      userProfile,
+      state.nutritionProfile.dietGoal as DietGoal,
+      dietStyle
+    )
     dispatch({ type: 'SET_NUTRITION_TARGETS', payload: targets })
 
     const tdee = userProfile.bodyComposition.dailyMetabolism || userProfile.bodyComposition.basalMetabolism || 2000
@@ -317,15 +324,33 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
       dispatch({ type: 'SET_GENERATING', payload: true })
       dispatch({ type: 'SET_ERROR', payload: null })
 
-      // Calcular metas primeiro
-      calculateTargets()
+      // Pegar o estilo de dieta das preferências
+      const dietStyle = state.nutritionProfile.foodPreferences?.dietStyle || 'tradicional'
 
+      // Calcular metas com o estilo de dieta correto
+      const targets = calculateNutritionTargets(
+        userProfile,
+        state.nutritionProfile.dietGoal as DietGoal,
+        dietStyle
+      )
+      dispatch({ type: 'SET_NUTRITION_TARGETS', payload: targets })
+
+      // Calcular projeção de peso
+      const tdee = userProfile.bodyComposition.dailyMetabolism || userProfile.bodyComposition.basalMetabolism || 2000
+      const projection = calculateWeightProjection(
+        state.nutritionProfile.dietGoal as DietGoal,
+        targets,
+        tdee
+      )
+      dispatch({ type: 'SET_WEIGHT_PROJECTION', payload: projection })
+
+      // Gerar dieta com as metas recalculadas
       const diet = await generateDietWithGPT({
         userProfile,
         foodPreferences: state.nutritionProfile.foodPreferences as FoodPreferences,
         dietGoal: state.nutritionProfile.dietGoal as DietGoal,
         mealPlan: state.nutritionProfile.mealPlan as MealPlan,
-        nutritionTargets: state.nutritionProfile.nutritionTargets as NutritionTargets
+        nutritionTargets: targets  // Usar as metas recalculadas
       })
 
       dispatch({ type: 'SET_WEEKLY_DIET', payload: diet })
