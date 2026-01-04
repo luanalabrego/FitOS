@@ -11,6 +11,16 @@ export interface FoodPreferences {
   dietStyle?: DietStyle
 }
 
+// Itens disponíveis na geladeira/despensa do usuário
+export interface FridgeInventory {
+  // Lista de itens em texto (cada linha um item)
+  items: string[]
+  // Se a dieta deve usar apenas esses itens
+  useOnlyFridgeItems: boolean
+  // Última atualização
+  updatedAt?: Date
+}
+
 export type DietStyle =
   | 'tradicional'      // Dieta brasileira tradicional
   | 'low_carb'         // Baixo carboidrato
@@ -203,6 +213,8 @@ export interface NutritionProfile {
   nutritionTargets: NutritionTargets
   // Projeção de peso
   weightProjection: WeightProjection
+  // Inventário da geladeira/despensa
+  fridgeInventory?: FridgeInventory
   // Dieta atual gerada
   currentDiet?: WeeklyDiet
   // Histórico de dietas
@@ -247,6 +259,7 @@ export type NutritionAction =
   | { type: 'UPDATE_DIET_GOAL'; payload: Partial<DietGoal> }
   | { type: 'UPDATE_FOOD_PREFERENCES'; payload: Partial<FoodPreferences> }
   | { type: 'UPDATE_MEAL_PLAN'; payload: Partial<MealPlan> }
+  | { type: 'UPDATE_FRIDGE_INVENTORY'; payload: Partial<FridgeInventory> }
   | { type: 'SET_NUTRITION_TARGETS'; payload: NutritionTargets }
   | { type: 'SET_WEIGHT_PROJECTION'; payload: WeightProjection }
   | { type: 'SET_WEEKLY_DIET'; payload: WeeklyDiet }

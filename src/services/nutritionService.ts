@@ -277,6 +277,10 @@ interface GPTDietRequest {
   dietGoal: DietGoal
   mealPlan: MealPlan
   nutritionTargets: NutritionTargets
+  fridgeInventory?: {
+    items: string[]
+    useOnlyFridgeItems: boolean
+  }
 }
 
 /**
@@ -335,7 +339,7 @@ ESTILO: DIETA FLEXÍVEL (IIFYM)
  * Gera o prompt para o GPT-4.1-mini criar a dieta
  */
 function buildDietPrompt(request: GPTDietRequest): string {
-  const { userProfile, foodPreferences, dietGoal, mealPlan, nutritionTargets } = request
+  const { userProfile, foodPreferences, dietGoal, mealPlan, nutritionTargets, fridgeInventory } = request
   const { bodyComposition } = userProfile
 
   const goalLabels: Record<string, string> = {
@@ -427,6 +431,15 @@ ${dietStyleInstruction}
 ${foodPreferences.dislikedFoods.length > 0 ? `- PROIBIDO (não gosta): ${foodPreferences.dislikedFoods.join(', ')}` : ''}
 ${foodPreferences.mustHaveFoods.length > 0 ? `- INCLUIR (favoritos): ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
 ${foodPreferences.restrictions.length > 0 ? `- RESTRIÇÕES/ALERGIAS: ${foodPreferences.restrictions.join(', ')}` : ''}
+${fridgeInventory?.useOnlyFridgeItems && fridgeInventory.items.length > 0 ? `
+## RESTRIÇÃO ESPECIAL: USAR APENAS ITENS DA GELADEIRA/DESPENSA
+⚠️ ATENÇÃO: O paciente quer que a dieta use APENAS os alimentos que ele tem disponíveis em casa.
+USE SOMENTE OS SEGUINTES ALIMENTOS (não invente outros):
+${fridgeInventory.items.map(item => `- ${item}`).join('\n')}
+
+IMPORTANTE: Crie refeições criativas usando APENAS os ingredientes listados acima.
+Se não for possível atingir as metas nutricionais com os ingredientes disponíveis,
+sugira nas dicas do dia quais alimentos o paciente deveria comprar.` : ''}
 
 ## REFEIÇÕES DO DIA (EXATAMENTE ${mealPlan.mealsPerDay})
 ${mealNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNutrition } from '@/contexts/NutritionContext'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -16,14 +16,48 @@ import {
   Flame,
   Droplet,
   Loader2,
-  Edit2
+  Edit2,
+  Refrigerator,
+  ChevronDown,
+  ChevronUp,
+  Info
 } from 'lucide-react'
 import { DIET_STYLES, INTENSITY_OPTIONS } from '@/types/nutrition'
 
 export function ReviewStep() {
-  const { state, generateDiet, prevStep, goToStep, calculateTargets } = useNutrition()
+  const { state, dispatch, generateDiet, prevStep, goToStep, calculateTargets } = useNutrition()
   const { nutritionProfile, isGeneratingDiet } = state
-  const { dietGoal, foodPreferences, mealPlan, nutritionTargets, weightProjection } = nutritionProfile
+  const { dietGoal, foodPreferences, mealPlan, nutritionTargets, weightProjection, fridgeInventory } = nutritionProfile
+
+  // Estado para controlar expansão da seção de geladeira
+  const [showFridgeSection, setShowFridgeSection] = useState(false)
+  const [fridgeText, setFridgeText] = useState('')
+
+  // Carregar texto da geladeira do estado
+  useEffect(() => {
+    if (fridgeInventory?.items && fridgeInventory.items.length > 0) {
+      setFridgeText(fridgeInventory.items.join('\n'))
+      setShowFridgeSection(true)
+    }
+  }, [])
+
+  // Atualizar inventário da geladeira
+  const updateFridgeInventory = (text: string) => {
+    setFridgeText(text)
+    const items = text.split('\n').map(item => item.trim()).filter(item => item.length > 0)
+    dispatch({
+      type: 'UPDATE_FRIDGE_INVENTORY',
+      payload: { items }
+    })
+  }
+
+  // Toggle usar apenas itens da geladeira
+  const toggleUseOnlyFridgeItems = () => {
+    dispatch({
+      type: 'UPDATE_FRIDGE_INVENTORY',
+      payload: { useOnlyFridgeItems: !fridgeInventory?.useOnlyFridgeItems }
+    })
+  }
 
   // Recalcular metas quando entrar na tela de revisão ou quando preferências mudarem
   useEffect(() => {
@@ -308,6 +342,118 @@ export function ReviewStep() {
             )}
           </div>
         </CardContent>
+      </Card>
+
+      {/* Card de Geladeira/Despensa */}
+      <Card className={fridgeInventory?.useOnlyFridgeItems ? 'border-cyan-500/50 bg-cyan-500/5' : ''}>
+        <button
+          onClick={() => setShowFridgeSection(!showFridgeSection)}
+          className="w-full"
+        >
+          <CardHeader
+            title="O que tenho na geladeira"
+            icon={<Refrigerator className="w-5 h-5 text-cyan-400" />}
+            action={
+              <div className="flex items-center gap-2">
+                {fridgeInventory?.items && fridgeInventory.items.length > 0 && (
+                  <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs">
+                    {fridgeInventory.items.length} itens
+                  </span>
+                )}
+                {showFridgeSection ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            }
+          />
+        </button>
+
+        {showFridgeSection && (
+          <CardContent>
+            {/* Info explicativa */}
+            <div className="p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/30 mb-4 flex gap-2">
+              <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-gray-300">
+                <p className="font-medium text-cyan-400 mb-1">Use apenas o que você tem em casa!</p>
+                <p className="text-gray-400">
+                  Liste os alimentos que você já tem disponível e a IA criará uma dieta usando apenas esses ingredientes.
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle usar apenas itens da geladeira */}
+            <label className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg cursor-pointer mb-4">
+              <div
+                className={`w-12 h-6 rounded-full transition-colors ${
+                  fridgeInventory?.useOnlyFridgeItems ? 'bg-cyan-500' : 'bg-gray-600'
+                }`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  toggleUseOnlyFridgeItems()
+                }}
+              >
+                <div
+                  className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform mt-0.5 ${
+                    fridgeInventory?.useOnlyFridgeItems ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-white font-medium">Usar apenas esses alimentos</p>
+                <p className="text-xs text-gray-400">
+                  A dieta será criada usando SOMENTE os itens listados abaixo
+                </p>
+              </div>
+            </label>
+
+            {/* Textarea para listar alimentos */}
+            <div className="space-y-2">
+              <label className="text-sm text-gray-400">
+                Liste os alimentos (um por linha):
+              </label>
+              <textarea
+                value={fridgeText}
+                onChange={(e) => updateFridgeInventory(e.target.value)}
+                placeholder={`Exemplo:
+Frango (1kg)
+Ovos (12 unidades)
+Arroz
+Feijão
+Brócolis
+Tomate
+Cebola
+Alho
+Azeite
+Queijo minas`}
+                className="w-full h-48 p-3 bg-gray-700 rounded-lg border border-gray-600 text-white placeholder-gray-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none resize-none text-sm"
+              />
+              <p className="text-xs text-gray-500">
+                Dica: Inclua quantidades aproximadas para ajudar a IA a distribuir melhor os alimentos na semana
+              </p>
+            </div>
+
+            {/* Preview dos itens */}
+            {fridgeInventory?.items && fridgeInventory.items.length > 0 && (
+              <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
+                <p className="text-xs text-gray-400 mb-2">Itens registrados:</p>
+                <div className="flex flex-wrap gap-1">
+                  {fridgeInventory.items.slice(0, 10).map((item, index) => (
+                    <span key={index} className="px-2 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-xs">
+                      {item}
+                    </span>
+                  ))}
+                  {fridgeInventory.items.length > 10 && (
+                    <span className="px-2 py-1 bg-gray-700 text-gray-400 rounded-full text-xs">
+                      +{fridgeInventory.items.length - 10} mais
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Botões de ação */}
