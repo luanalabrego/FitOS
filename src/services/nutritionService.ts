@@ -394,64 +394,87 @@ function buildDietPrompt(request: GPTDietRequest): string {
   const useOnlyFridge = fridgeInventory?.useOnlyFridgeItems && fridgeInventory.items.length > 0
   const fridgeItemsList = fridgeInventory?.items || []
 
-  // Seção de alimentos disponíveis - muda completamente se usar apenas geladeira
-  const foodsSection = useOnlyFridge ? `
-## 🚨 RESTRIÇÃO CRÍTICA: USAR APENAS ITENS DA GELADEIRA 🚨
-⛔ ESTA É A REGRA MAIS IMPORTANTE DE TODAS - NÃO PODE SER VIOLADA ⛔
+  // Se usar geladeira, criar prompt totalmente diferente
+  if (useOnlyFridge) {
+    return `Você é um chef de cozinha brasileiro que vai criar um cardápio usando APENAS os ingredientes disponíveis.
 
-O paciente SOMENTE possui os seguintes alimentos em casa.
-Você NÃO PODE usar NENHUM alimento que não esteja nesta lista.
-Se um alimento não está listado abaixo, ELE NÃO EXISTE para esta dieta.
+# INGREDIENTES DISPONÍVEIS (VOCÊ SÓ PODE USAR ESTES)
 
-### ALIMENTOS DISPONÍVEIS (USE APENAS ESTES):
-${fridgeItemsList.map(item => `✓ ${item}`).join('\n')}
+${fridgeItemsList.map(item => `• ${item}`).join('\n')}
 
-### REGRAS OBRIGATÓRIAS:
-1. TODOS os alimentos da dieta DEVEM estar na lista acima
-2. As ALTERNATIVAS também DEVEM estar na lista acima
-3. NÃO invente, NÃO sugira, NÃO adicione NENHUM alimento fora da lista
-4. Se faltar variedade, REPITA os mesmos alimentos em diferentes preparos
-5. Nas dicas do dia, sugira o que o paciente deveria COMPRAR para melhorar a dieta
+⛔ REGRA ABSOLUTA: Você NÃO PODE usar NENHUM ingrediente que não esteja na lista acima.
+Se um ingrediente não está listado, ele NÃO EXISTE. Nem frutas, nem vegetais, nem temperos - NADA além da lista.
 
-### ALIMENTOS PROIBIDOS (NÃO ESTÃO NA GELADEIRA):
-- Qualquer fruta não listada acima
-- Qualquer vegetal não listado acima
-- Qualquer proteína não listada acima
-- Qualquer laticínio não listado acima
-- ABACATE, AVEIA, GRANOLA - a menos que estejam na lista acima` : `
-## ALIMENTOS BRASILEIROS RECOMENDADOS
-- Proteínas: frango, carne moída, ovos, peixe (tilápia, sardinha), carne de panela, patinho, acém
-- Carboidratos: arroz, feijão, batata, batata doce, mandioca, pão francês, macarrão, cuscuz, tapioca
-- Vegetais: alface, tomate, cenoura, chuchu, abobrinha, brócolis, couve, repolho, beterraba
-- Frutas: banana, maçã, laranja, mamão, melancia, abacaxi, manga, goiaba
-- Laticínios: leite, queijo minas, iogurte natural, requeijão
-- Gorduras: azeite, óleo de coco, manteiga, castanha de caju`
+# CONFIGURAÇÕES DO USUÁRIO
 
-  // Regra adicional para as regras absolutas
-  const fridgeRule = useOnlyFridge ? `
-4. 🚨 USAR APENAS ALIMENTOS DA GELADEIRA - Esta é a regra mais importante. PROIBIDO usar qualquer alimento que não esteja na lista de "ALIMENTOS DISPONÍVEIS"` : `
-4. USE APENAS ALIMENTOS BRASILEIROS SIMPLES E ACESSÍVEIS`
+- Peso: ${bodyComposition.currentWeight}kg → Meta: ${dietGoal.targetWeight}kg
+- Objetivo: ${goalLabels[dietGoal.type]}
+- Estilo de dieta escolhido: **${dietStyleLabels[dietStyle]}**
+- Refeições por dia: ${mealPlan.mealsPerDay}
 
-  // Instrução para alternativas
-  const alternativesInstruction = useOnlyFridge
-    ? `7. **IMPORTANTE**: Para CADA alimento, forneça 2 ALTERNATIVAS que TAMBÉM estejam na lista de alimentos disponíveis. Se não houver alternativas possíveis na lista, repita o mesmo alimento ou deixe array vazio.`
-    : `7. **IMPORTANTE**: Para CADA alimento, forneça 2 ALTERNATIVAS que podem substituí-lo (com valores nutricionais similares)`
+# METAS NUTRICIONAIS DIÁRIAS
 
-  return `Você é um NUTRICIONISTA ESPORTIVO BRASILEIRO ESPECIALISTA focado no objetivo do paciente.
-Sua missão é criar um plano alimentar que RESPEITE RIGOROSAMENTE todas as especificações.
+- Calorias: ${nutritionTargets.calories} kcal
+- Proteínas: ${nutritionTargets.protein}g
+- Carboidratos: ${nutritionTargets.carbs}g
+- Gorduras: ${nutritionTargets.fat}g
 
-## CONTEXTO
-- LOCALIZAÇÃO: BRASIL
-${useOnlyFridge ? '- ⚠️ O PACIENTE VAI USAR APENAS OS ALIMENTOS QUE TEM EM CASA - SIGA A LISTA RIGOROSAMENTE' : '- Use APENAS alimentos comuns e acessíveis em supermercados brasileiros'}
-- Prefira alimentos SIMPLES e de fácil preparo
-- Use medidas brasileiras (xícara, colher de sopa, gramas)
+# INSTRUÇÕES
 
-## REGRAS ABSOLUTAS (NÃO VIOLAR)
-1. NÚMERO DE REFEIÇÕES: EXATAMENTE ${mealPlan.mealsPerDay} refeições por dia. NÃO MAIS, NÃO MENOS.
-2. ESTILO DE DIETA: ${dietStyleLabels[dietStyle]} - SIGA RIGOROSAMENTE
-3. Os macros de cada dia DEVEM estar próximos das metas${fridgeRule}
+1. Crie um cardápio para 7 dias (segunda a domingo)
+2. Use APENAS os ingredientes da lista acima - seja criativo com diferentes preparos
+3. Cada dia deve ter ${mealPlan.mealsPerDay} refeições: ${mealNames.join(', ')}
+4. Varie as combinações - não repita a mesma refeição em dias seguidos
+5. As alternativas de cada alimento também devem estar na lista de ingredientes
+6. Nas dicas, sugira ingredientes que o usuário deveria COMPRAR para melhorar a dieta
 
-## DADOS DO PACIENTE
+# FORMATO DE RESPOSTA (APENAS JSON)
+
+{
+  "days": [
+    {
+      "dayOfWeek": "segunda",
+      "dayName": "Segunda-feira",
+      "meals": [
+${mealNames.map((name, i) => `        {
+          "name": "${name}",
+          "time": "${getMealTime(i, mealPlan.mealsPerDay)}",
+          "foods": [
+            {
+              "name": "DEVE ESTAR NA LISTA DE INGREDIENTES",
+              "quantity": "quantidade em gramas ou medida caseira",
+              "calories": 0,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 0,
+              "alternatives": [
+                {"name": "alternativa da lista", "quantity": "qtd", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}
+              ]
+            }
+          ],
+          "totalCalories": 0,
+          "totalProtein": 0,
+          "totalCarbs": 0,
+          "totalFat": 0
+        }`).join(',\n')}
+      ],
+      "totalCalories": 0,
+      "totalProtein": 0,
+      "totalCarbs": 0,
+      "totalFat": 0,
+      "tips": ["Sugestão de compra: ...", "Dica de preparo: ..."]
+    }
+  ]
+}
+
+LEMBRE-SE: Use SOMENTE os ingredientes listados. Qualquer ingrediente fora da lista invalida a resposta.`
+  }
+
+  // Prompt normal (sem restrição de geladeira)
+  return `Você é um NUTRICIONISTA ESPORTIVO BRASILEIRO ESPECIALISTA.
+
+# DADOS DO PACIENTE
+
 - Sexo: ${bodyComposition.gender === 'masculino' ? 'Masculino' : bodyComposition.gender === 'feminino' ? 'Feminino' : 'Outro'}
 - Idade: ${bodyComposition.age} anos
 - Peso atual: ${bodyComposition.currentWeight}kg
@@ -459,30 +482,37 @@ ${useOnlyFridge ? '- ⚠️ O PACIENTE VAI USAR APENAS OS ALIMENTOS QUE TEM EM C
 - Peso meta: ${dietGoal.targetWeight}kg
 - Objetivo: ${goalLabels[dietGoal.type]}
 
-## METAS NUTRICIONAIS DIÁRIAS${macroInstructions}
+# ESTILO DE DIETA ESCOLHIDO: ${dietStyleLabels[dietStyle]}
+${dietStyleInstruction}
+
+# METAS NUTRICIONAIS DIÁRIAS
+${macroInstructions}
 - Fibras: ${nutritionTargets.fiber}g
 - Água: ${nutritionTargets.water}L
-${dietStyleInstruction}
-${foodsSection}
 
-## PREFERÊNCIAS DO PACIENTE
-${foodPreferences.dislikedFoods.length > 0 ? `- PROIBIDO (não gosta): ${foodPreferences.dislikedFoods.join(', ')}` : ''}
-${foodPreferences.mustHaveFoods.length > 0 ? `- INCLUIR (favoritos): ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
-${foodPreferences.restrictions.length > 0 ? `- RESTRIÇÕES/ALERGIAS: ${foodPreferences.restrictions.join(', ')}` : ''}
+# PREFERÊNCIAS
+${foodPreferences.dislikedFoods.length > 0 ? `- Não gosta: ${foodPreferences.dislikedFoods.join(', ')}` : ''}
+${foodPreferences.mustHaveFoods.length > 0 ? `- Favoritos: ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
+${foodPreferences.restrictions.length > 0 ? `- Restrições: ${foodPreferences.restrictions.join(', ')}` : ''}
 
-## REFEIÇÕES DO DIA (EXATAMENTE ${mealPlan.mealsPerDay})
-${mealNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
+# ALIMENTOS BRASILEIROS RECOMENDADOS
+- Proteínas: frango, carne moída, ovos, peixe, carne de panela, patinho
+- Carboidratos: arroz, feijão, batata, batata doce, pão, macarrão, cuscuz, tapioca
+- Vegetais: alface, tomate, cenoura, abobrinha, brócolis, couve
+- Frutas: banana, maçã, laranja, mamão, melancia
+- Laticínios: leite, queijo minas, iogurte, requeijão
+- Gorduras: azeite, manteiga, castanhas
 
-## INSTRUÇÕES FINAIS
-1. Crie cardápio para os 7 dias da semana (segunda a domingo)
-2. CADA DIA deve ter EXATAMENTE ${mealPlan.mealsPerDay} refeições com os nomes especificados acima
-3. Liste alimentos com quantidades em gramas ou medidas caseiras brasileiras
-4. ${useOnlyFridge ? 'Use SOMENTE os alimentos da lista de ALIMENTOS DISPONÍVEIS - NÃO INVENTE OUTROS' : 'Varie os alimentos para não enjoar, mas mantenha simples'}
-5. Priorize preparos rápidos e práticos do dia a dia brasileiro
-6. ${useOnlyFridge ? 'Nas dicas do dia, sugira alimentos que o paciente deveria COMPRAR para complementar a dieta' : 'Dê 2 dicas práticas por dia relacionadas ao preparo ou benefícios dos alimentos'}
-${alternativesInstruction}
+# INSTRUÇÕES
 
-## FORMATO JSON (RESPONDA APENAS O JSON)
+1. Crie cardápio para 7 dias (segunda a domingo)
+2. Cada dia: ${mealPlan.mealsPerDay} refeições (${mealNames.join(', ')})
+3. Siga o estilo de dieta ${dietStyleLabels[dietStyle]}
+4. Varie os alimentos para não enjoar
+5. Para cada alimento, forneça 2 alternativas
+
+# FORMATO JSON (RESPONDA APENAS O JSON)
+
 {
   "days": [
     {
@@ -501,8 +531,8 @@ ${mealNames.map((name, i) => `        {
               "carbs": 0,
               "fat": 0,
               "alternatives": [
-                {"name": "alternativa 1", "quantity": "quantidade", "calories": 0, "protein": 0, "carbs": 0, "fat": 0},
-                {"name": "alternativa 2", "quantity": "quantidade", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}
+                {"name": "alt 1", "quantity": "qtd", "calories": 0, "protein": 0, "carbs": 0, "fat": 0},
+                {"name": "alt 2", "quantity": "qtd", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}
               ]
             }
           ],
