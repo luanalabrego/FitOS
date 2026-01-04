@@ -15,7 +15,7 @@ import {
   Calendar,
   Sparkles
 } from 'lucide-react'
-import { Header, Logo, FeatureCard, GoalButton } from '@/components'
+import { Header, Logo, FeatureCard, GoalButton, QuickMealSection } from '@/components'
 import { getProfile } from '@/services/profileService'
 import { getCurrentUser, onAuthChange } from '@/services/authService'
 import { UserProfile } from '@/types/profile'
@@ -121,81 +121,90 @@ export default function Home() {
           )}
         </div>
 
-        {/* Goals Quick Selection */}
-        <div className="mt-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <p className="text-gray-500 text-xs uppercase tracking-wider text-center mb-4 font-medium">
-            Qual seu objetivo?
-          </p>
-          <div className="flex justify-center gap-3">
-            <GoalButton icon={Dumbbell} label="Ganhar Massa" color="green" />
-            <GoalButton icon={Flame} label="Perder Peso" color="orange" />
-            <GoalButton icon={Heart} label="Condicio-namento" color="blue" />
-          </div>
-        </div>
-
-        {/* Stats Preview */}
-        <div
-          className="mt-8 bg-gradient-to-br from-gray-800/80 to-gray-900/80
-                     border border-gray-700/50 rounded-2xl p-5 animate-slide-up"
-          style={{ animationDelay: '400ms' }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-lg">Visao Geral</h2>
-            <span className="text-xs text-gray-500">Comece agora</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="bg-primary-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2">
-                <Zap className="w-6 h-6 text-primary-400" />
-              </div>
-              <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-gray-500">Treinos</p>
-            </div>
-            <div className="text-center">
-              <div className="bg-orange-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2">
-                <Apple className="w-6 h-6 text-orange-400" />
-              </div>
-              <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-gray-500">Refeicoes</p>
-            </div>
-            <div className="text-center">
-              <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2">
-                <TrendingUp className="w-6 h-6 text-blue-400" />
-              </div>
-              <p className="text-2xl font-bold">-</p>
-              <p className="text-xs text-gray-500">Progresso</p>
+        {/* Goals Quick Selection - Só mostra se o perfil NÃO estiver completo */}
+        {!isProfileComplete && (
+          <div className="mt-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
+            <p className="text-gray-500 text-xs uppercase tracking-wider text-center mb-4 font-medium">
+              Qual seu objetivo?
+            </p>
+            <div className="flex justify-center gap-3">
+              <GoalButton icon={Dumbbell} label="Ganhar Massa" color="green" />
+              <GoalButton icon={Flame} label="Perder Peso" color="orange" />
+              <GoalButton icon={Heart} label="Condicio-namento" color="blue" />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Features */}
-        <div className="mt-8 space-y-3">
-          <h2 className="font-semibold text-lg mb-4 animate-slide-up" style={{ animationDelay: '500ms' }}>
-            O que o FitOS faz por voce
-          </h2>
+        {/* Quick Meal Section - Só mostra se o perfil estiver completo */}
+        {isProfileComplete && <QuickMealSection />}
 
-          <FeatureCard
-            icon={Target}
-            title="Plano Personalizado"
-            description="Treinos e dietas adaptados ao seu objetivo, nivel e rotina."
-            delay={600}
-          />
+        {/* Stats Preview - Só mostra se o perfil NÃO estiver completo */}
+        {!isProfileComplete && (
+          <div
+            className="mt-8 bg-gradient-to-br from-gray-800/80 to-gray-900/80
+                       border border-gray-700/50 rounded-2xl p-5 animate-slide-up"
+            style={{ animationDelay: '400ms' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-lg">Visao Geral</h2>
+              <span className="text-xs text-gray-500">Comece agora</span>
+            </div>
 
-          <FeatureCard
-            icon={BarChart3}
-            title="Acompanhamento Inteligente"
-            description="Metricas claras para entender seu progresso real."
-            delay={700}
-          />
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="bg-primary-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2">
+                  <Zap className="w-6 h-6 text-primary-400" />
+                </div>
+                <p className="text-2xl font-bold">0</p>
+                <p className="text-xs text-gray-500">Treinos</p>
+              </div>
+              <div className="text-center">
+                <div className="bg-orange-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2">
+                  <Apple className="w-6 h-6 text-orange-400" />
+                </div>
+                <p className="text-2xl font-bold">0</p>
+                <p className="text-xs text-gray-500">Refeicoes</p>
+              </div>
+              <div className="text-center">
+                <div className="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="w-6 h-6 text-blue-400" />
+                </div>
+                <p className="text-2xl font-bold">-</p>
+                <p className="text-xs text-gray-500">Progresso</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-          <FeatureCard
-            icon={Calendar}
-            title="Rotina Simplificada"
-            description="Saiba exatamente o que fazer cada dia, sem complicacao."
-            delay={800}
-          />
-        </div>
+        {/* Features - Só mostra se o perfil NÃO estiver completo */}
+        {!isProfileComplete && (
+          <div className="mt-8 space-y-3">
+            <h2 className="font-semibold text-lg mb-4 animate-slide-up" style={{ animationDelay: '500ms' }}>
+              O que o FitOS faz por voce
+            </h2>
+
+            <FeatureCard
+              icon={Target}
+              title="Plano Personalizado"
+              description="Treinos e dietas adaptados ao seu objetivo, nivel e rotina."
+              delay={600}
+            />
+
+            <FeatureCard
+              icon={BarChart3}
+              title="Acompanhamento Inteligente"
+              description="Metricas claras para entender seu progresso real."
+              delay={700}
+            />
+
+            <FeatureCard
+              icon={Calendar}
+              title="Rotina Simplificada"
+              description="Saiba exatamente o que fazer cada dia, sem complicacao."
+              delay={800}
+            />
+          </div>
+        )}
 
         {/* CTA Button - Só mostra se o perfil não estiver completo */}
         {!isProfileComplete && (
