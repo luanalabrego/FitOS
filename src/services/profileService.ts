@@ -11,6 +11,38 @@ import { UserProfile, ProfilePhoto } from '@/types/profile'
 
 const COLLECTION_NAME = 'profiles'
 
+/**
+ * Remove recursivamente todos os valores undefined de um objeto
+ * Firestore não aceita undefined como valor
+ */
+function removeUndefined(obj: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue // Pular valores undefined
+    }
+
+    if (value === null) {
+      cleaned[key] = null // null é aceito pelo Firestore
+    } else if (Array.isArray(value)) {
+      // Limpar arrays recursivamente
+      cleaned[key] = value.map((item) =>
+        typeof item === 'object' && item !== null
+          ? removeUndefined(item as Record<string, unknown>)
+          : item
+      ).filter((item) => item !== undefined)
+    } else if (typeof value === 'object' && value !== null && !(value instanceof Timestamp) && !(value instanceof Date)) {
+      // Limpar objetos recursivamente (exceto Timestamp e Date)
+      cleaned[key] = removeUndefined(value as Record<string, unknown>)
+    } else {
+      cleaned[key] = value
+    }
+  }
+
+  return cleaned
+}
+
 // Converter datas para Firestore
 function serializeProfile(profile: Partial<UserProfile>): Record<string, unknown> {
   const serialized: Record<string, unknown> = { ...profile }
@@ -53,7 +85,8 @@ function serializeProfile(profile: Partial<UserProfile>): Record<string, unknown
     }))
   }
 
-  return serialized
+  // Remover todos os valores undefined antes de salvar
+  return removeUndefined(serialized)
 }
 
 // Converter dados do Firestore para o formato da aplicação
