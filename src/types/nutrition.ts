@@ -84,6 +84,56 @@ export interface FoodItem {
   carbs: number
   fat: number
   notes?: string
+  // Opções alternativas de alimentos (para variar)
+  alternatives?: FoodAlternative[]
+}
+
+export interface FoodAlternative {
+  name: string
+  quantity: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+// Registro de refeição consumida
+export interface MealLog {
+  id: string
+  date: Date
+  mealName: string  // "Café da Manhã", "Almoço", etc.
+  foods: ConsumedFood[]
+  totalCalories: number
+  totalProtein: number
+  totalCarbs: number
+  totalFat: number
+  createdAt: Date
+}
+
+export interface ConsumedFood {
+  name: string
+  quantity: string  // em gramas ou medida
+  grams: number     // quantidade em gramas para cálculo
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  isCustom: boolean // true se foi digitado pelo usuário
+}
+
+// Consumo diário
+export interface DailyConsumption {
+  date: string  // YYYY-MM-DD
+  userId: string
+  mealLogs: MealLog[]
+  totalCalories: number
+  totalProtein: number
+  totalCarbs: number
+  totalFat: number
+  calorieGoal: number
+  proteinGoal: number
+  carbsGoal: number
+  fatGoal: number
 }
 
 export interface DailyDiet {
