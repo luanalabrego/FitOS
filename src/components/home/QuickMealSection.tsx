@@ -327,7 +327,7 @@ export function QuickMealSection() {
     )
   }
 
-  // Se não tem dieta configurada
+  // Se não tem dieta configurada, não mostra nada
   if (!nutritionProfile?.currentDiet || !todayData) {
     return null
   }
