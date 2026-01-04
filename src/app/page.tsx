@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import {
   Dumbbell,
   Apple,
@@ -15,6 +16,11 @@ import {
 import { Header, Logo, FeatureCard, GoalButton } from '@/components'
 
 export default function Home() {
+  const router = useRouter()
+
+  const handleStartJourney = () => {
+    router.push('/perfil')
+  }
   return (
     <main className="min-h-screen pb-8">
       <Header />
@@ -120,6 +126,7 @@ export default function Home() {
         {/* CTA Button */}
         <div className="mt-8 animate-slide-up" style={{ animationDelay: '900ms' }}>
           <button
+            onClick={handleStartJourney}
             className="w-full bg-gradient-to-r from-primary-600 to-primary-500
                        hover:from-primary-500 hover:to-primary-400
                        text-white font-semibold py-4 px-6 rounded-2xl
