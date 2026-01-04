@@ -31,21 +31,28 @@ export function calculateNutritionTargets(
   const { bodyComposition } = userProfile
   const tdee = bodyComposition.dailyMetabolism || bodyComposition.basalMetabolism || 2000
 
-  // Calcular déficit/superávit baseado na intensidade
-  const intensityConfig = INTENSITY_OPTIONS[dietGoal.intensity]
-  let targetCalories = tdee
+  let targetCalories: number
 
-  if (dietGoal.type === 'perda_peso') {
-    targetCalories = tdee - intensityConfig.deficit
-  } else if (dietGoal.type === 'ganho_massa') {
-    targetCalories = tdee + (intensityConfig.deficit * 0.7) // Superávit menor para ganho limpo
-  } else if (dietGoal.type === 'recomposicao') {
-    targetCalories = tdee - 100 // Leve déficit para recomposição
+  // Se o usuário definiu calorias customizadas, usar elas
+  if (dietGoal.useCustomCalories && dietGoal.customCalories && dietGoal.customCalories > 0) {
+    targetCalories = dietGoal.customCalories
+  } else {
+    // Calcular déficit/superávit baseado na intensidade
+    const intensityConfig = INTENSITY_OPTIONS[dietGoal.intensity]
+    targetCalories = tdee
+
+    if (dietGoal.type === 'perda_peso') {
+      targetCalories = tdee - intensityConfig.deficit
+    } else if (dietGoal.type === 'ganho_massa') {
+      targetCalories = tdee + (intensityConfig.deficit * 0.7) // Superávit menor para ganho limpo
+    } else if (dietGoal.type === 'recomposicao') {
+      targetCalories = tdee - 100 // Leve déficit para recomposição
+    }
+
+    // Garantir mínimo saudável (apenas para cálculo automático)
+    const minCalories = bodyComposition.gender === 'masculino' ? 1500 : 1200
+    targetCalories = Math.max(targetCalories, minCalories)
   }
-
-  // Garantir mínimo saudável
-  const minCalories = bodyComposition.gender === 'masculino' ? 1500 : 1200
-  targetCalories = Math.max(targetCalories, minCalories)
 
   // Calcular macros baseado no objetivo e peso
   const weight = bodyComposition.currentWeight
@@ -295,13 +302,21 @@ function buildDietPrompt(request: GPTDietRequest): string {
   // Gerar nomes das refeições baseado no número escolhido
   const mealNames = generateMealNames(mealPlan.mealsPerDay, mealPlan.includeSnacks)
 
-  return `Você é um NUTRICIONISTA ESPORTIVO ESPECIALISTA focado no objetivo do paciente.
+  return `Você é um NUTRICIONISTA ESPORTIVO BRASILEIRO ESPECIALISTA focado no objetivo do paciente.
 Sua missão é criar um plano alimentar que RESPEITE RIGOROSAMENTE todas as especificações.
+
+## CONTEXTO
+- LOCALIZAÇÃO: BRASIL
+- Use APENAS alimentos comuns e acessíveis em supermercados brasileiros
+- Prefira alimentos SIMPLES e de fácil preparo (frango, ovos, arroz, feijão, carne moída, etc.)
+- Evite ingredientes importados, caros ou difíceis de encontrar
+- Use medidas brasileiras (xícara, colher de sopa, gramas)
 
 ## REGRAS ABSOLUTAS (NÃO VIOLAR)
 1. NÚMERO DE REFEIÇÕES: EXATAMENTE ${mealPlan.mealsPerDay} refeições por dia. NÃO MAIS, NÃO MENOS.
 2. ESTILO DE DIETA: ${dietStyleLabels[dietStyle]} - SIGA RIGOROSAMENTE
 3. Os macros de cada dia DEVEM estar próximos das metas
+4. USE APENAS ALIMENTOS BRASILEIROS SIMPLES E ACESSÍVEIS
 
 ## DADOS DO PACIENTE
 - Sexo: ${bodyComposition.gender === 'masculino' ? 'Masculino' : bodyComposition.gender === 'feminino' ? 'Feminino' : 'Outro'}
@@ -316,6 +331,14 @@ Sua missão é criar um plano alimentar que RESPEITE RIGOROSAMENTE todas as espe
 - Água: ${nutritionTargets.water}L
 ${dietStyleInstruction}
 
+## ALIMENTOS BRASILEIROS RECOMENDADOS
+- Proteínas: frango, carne moída, ovos, peixe (tilápia, sardinha), carne de panela, patinho, acém
+- Carboidratos: arroz, feijão, batata, batata doce, mandioca, pão francês, macarrão, cuscuz, tapioca
+- Vegetais: alface, tomate, cenoura, chuchu, abobrinha, brócolis, couve, repolho, beterraba
+- Frutas: banana, maçã, laranja, mamão, melancia, abacaxi, manga, goiaba
+- Laticínios: leite, queijo minas, iogurte natural, requeijão
+- Gorduras: azeite, óleo de coco, manteiga, castanha de caju
+
 ## PREFERÊNCIAS DO PACIENTE
 ${foodPreferences.dislikedFoods.length > 0 ? `- PROIBIDO (não gosta): ${foodPreferences.dislikedFoods.join(', ')}` : ''}
 ${foodPreferences.mustHaveFoods.length > 0 ? `- INCLUIR (favoritos): ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
@@ -327,10 +350,10 @@ ${mealNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
 ## INSTRUÇÕES FINAIS
 1. Crie cardápio para os 7 dias da semana (segunda a domingo)
 2. CADA DIA deve ter EXATAMENTE ${mealPlan.mealsPerDay} refeições com os nomes especificados acima
-3. Liste alimentos com quantidades em gramas ou medidas caseiras
-4. Varie os alimentos para não enjoar
-5. Use alimentos acessíveis no Brasil
-6. Dê 2 dicas práticas por dia
+3. Liste alimentos com quantidades em gramas ou medidas caseiras brasileiras
+4. Varie os alimentos para não enjoar, mas mantenha simples
+5. Priorize preparos rápidos e práticos do dia a dia brasileiro
+6. Dê 2 dicas práticas por dia relacionadas ao preparo ou benefícios dos alimentos
 
 ## FORMATO JSON (RESPONDA APENAS O JSON)
 {

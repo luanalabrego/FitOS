@@ -7,7 +7,7 @@ import { MealsStep } from './steps/MealsStep'
 import { ReviewStep } from './steps/ReviewStep'
 import { DietView } from './DietView'
 import { NutritionStep } from '@/types/nutrition'
-import { Loader2, Utensils, Heart, Clock, CheckCircle, Sparkles } from 'lucide-react'
+import { Loader2, Utensils, Heart, Clock, CheckCircle, Sparkles, X } from 'lucide-react'
 
 const STEPS_CONFIG: {
   key: NutritionStep
@@ -23,8 +23,8 @@ const STEPS_CONFIG: {
 ]
 
 export function NutritionWizard() {
-  const { state, goToStep } = useNutrition()
-  const { currentStep, completedSteps, isLoading } = state
+  const { state, goToStep, cancelEditing } = useNutrition()
+  const { currentStep, completedSteps, isLoading, isEditing } = state
 
   if (isLoading) {
     return (
@@ -67,12 +67,25 @@ export function NutritionWizard() {
       <div className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-lg border-b border-gray-700/50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           {/* Título */}
-          <div className="text-center mb-4">
+          <div className="text-center mb-4 relative">
+            {/* Botão fechar quando está editando */}
+            {isEditing && (
+              <button
+                onClick={cancelEditing}
+                className="absolute right-0 top-0 p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                title="Fechar e voltar para a dieta"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
             <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
-              🍽️ Monte sua Dieta
+              🍽️ {isEditing ? 'Editar Dieta' : 'Monte sua Dieta'}
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Vamos criar um plano alimentar perfeito para você
+              {isEditing
+                ? 'Ajuste suas preferências e gere uma nova dieta'
+                : 'Vamos criar um plano alimentar perfeito para você'
+              }
             </p>
           </div>
 

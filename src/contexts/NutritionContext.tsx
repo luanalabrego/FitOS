@@ -55,7 +55,8 @@ const initialState: NutritionState = {
   isGeneratingDiet: false,
   isSaving: false,
   error: null,
-  selectedDay: 'segunda'
+  selectedDay: 'segunda',
+  isEditing: false
 }
 
 // Reducer
@@ -163,6 +164,9 @@ function nutritionReducer(state: NutritionState, action: NutritionAction): Nutri
     case 'SET_ERROR':
       return { ...state, error: action.payload }
 
+    case 'SET_EDITING':
+      return { ...state, isEditing: action.payload }
+
     case 'RESET':
       return { ...initialState, isLoading: false }
 
@@ -183,6 +187,8 @@ interface NutritionContextType {
   generateDiet: () => Promise<void>
   regenerateDiet: () => Promise<void>
   saveDietChanges: () => Promise<void>
+  startEditing: () => void
+  cancelEditing: () => void
 }
 
 const NutritionContext = createContext<NutritionContextType | undefined>(undefined)
@@ -364,6 +370,18 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
     }
   }
 
+  // Iniciar edição da dieta existente
+  const startEditing = () => {
+    dispatch({ type: 'SET_EDITING', payload: true })
+    dispatch({ type: 'SET_STEP', payload: 'objetivo' })
+  }
+
+  // Cancelar edição e voltar para a dieta
+  const cancelEditing = () => {
+    dispatch({ type: 'SET_EDITING', payload: false })
+    dispatch({ type: 'SET_STEP', payload: 'dieta_gerada' })
+  }
+
   return (
     <NutritionContext.Provider
       value={{
@@ -376,7 +394,9 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
         calculateTargets,
         generateDiet,
         regenerateDiet,
-        saveDietChanges
+        saveDietChanges,
+        startEditing,
+        cancelEditing
       }}
     >
       {children}
