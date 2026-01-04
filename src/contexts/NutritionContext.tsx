@@ -116,7 +116,9 @@ function nutritionReducer(state: NutritionState, action: NutritionAction): Nutri
       }
 
     case 'UPDATE_FRIDGE_INVENTORY':
-      return {
+      console.log('🧊 UPDATE_FRIDGE_INVENTORY:', action.payload)
+      console.log('🧊 Estado anterior:', state.nutritionProfile.fridgeInventory)
+      const newFridgeState = {
         ...state,
         nutritionProfile: {
           ...state.nutritionProfile,
@@ -126,6 +128,8 @@ function nutritionReducer(state: NutritionState, action: NutritionAction): Nutri
           } as FridgeInventory
         }
       }
+      console.log('🧊 Novo estado fridgeInventory:', newFridgeState.nutritionProfile.fridgeInventory)
+      return newFridgeState
 
     case 'SET_NUTRITION_TARGETS':
       return {
@@ -362,6 +366,10 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
       dispatch({ type: 'SET_WEIGHT_PROJECTION', payload: projection })
 
       // Gerar dieta com as metas recalculadas
+      console.log('🍽️ Gerando dieta com fridgeInventory:', state.nutritionProfile.fridgeInventory)
+      console.log('🍽️ useOnlyFridgeItems:', state.nutritionProfile.fridgeInventory?.useOnlyFridgeItems)
+      console.log('🍽️ items:', state.nutritionProfile.fridgeInventory?.items)
+
       const diet = await generateDietWithGPT({
         userProfile,
         foodPreferences: state.nutritionProfile.foodPreferences as FoodPreferences,

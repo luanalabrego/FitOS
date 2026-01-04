@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
   try {
     const { prompt, dietParams } = await request.json()
 
+    console.log('🔥 API generate-diet chamada')
+    console.log('📝 Prompt recebido (primeiros 500 chars):', prompt?.substring(0, 500))
+    console.log('📊 dietParams:', dietParams)
+
     if (!prompt) {
       return NextResponse.json(
         { error: 'Prompt é obrigatório' },
@@ -51,9 +55,12 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) {
       // Se não tiver API key, retorna dieta mock para desenvolvimento
-      console.warn('OPENAI_API_KEY não configurada, retornando dieta mock')
-      return NextResponse.json({ diet: generateMockDiet(dietParams) })
+      console.warn('⚠️ OPENAI_API_KEY não configurada, retornando dieta MOCK')
+      console.warn('⚠️ A dieta MOCK NÃO usa os itens da geladeira!')
+      return NextResponse.json({ diet: generateMockDiet(dietParams), isMock: true })
     }
+
+    console.log('✅ API Key encontrada, chamando OpenAI...')
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -74,23 +81,27 @@ export async function POST(request: NextRequest) {
           }
         ],
         temperature: 0.7,
-        max_tokens: 4000
+        max_tokens: 16000
       })
     })
 
     if (!response.ok) {
       const error = await response.json()
-      console.error('Erro OpenAI:', error)
+      console.error('❌ Erro OpenAI:', error)
+      console.warn('⚠️ Fallback para dieta MOCK (API falhou)')
 
       // Fallback para dieta mock se API falhar
-      return NextResponse.json({ diet: generateMockDiet(dietParams) })
+      return NextResponse.json({ diet: generateMockDiet(dietParams), isMock: true })
     }
 
     const data = await response.json()
     const content = data.choices[0]?.message?.content
 
+    console.log('✅ Resposta OpenAI recebida, tamanho:', content?.length, 'chars')
+
     if (!content) {
-      return NextResponse.json({ diet: generateMockDiet(dietParams) })
+      console.warn('⚠️ Resposta vazia da OpenAI, usando MOCK')
+      return NextResponse.json({ diet: generateMockDiet(dietParams), isMock: true })
     }
 
     // Tentar parsear JSON
@@ -102,10 +113,12 @@ export async function POST(request: NextRequest) {
         .trim()
 
       const diet = JSON.parse(cleanContent)
-      return NextResponse.json({ diet })
+      console.log('✅ Dieta parseada com sucesso! Dias:', diet.days?.length)
+      return NextResponse.json({ diet, isMock: false })
     } catch {
-      console.error('Erro ao parsear resposta do GPT:', content)
-      return NextResponse.json({ diet: generateMockDiet(dietParams) })
+      console.error('❌ Erro ao parsear resposta do GPT:', content?.substring(0, 200))
+      console.warn('⚠️ Fallback para dieta MOCK (parse falhou)')
+      return NextResponse.json({ diet: generateMockDiet(dietParams), isMock: true })
     }
 
   } catch (error) {
