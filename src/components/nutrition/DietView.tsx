@@ -33,7 +33,7 @@ export function DietView() {
 
   if (!currentDiet) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="min-h-screen pt-16 flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="text-center p-8">
           <Loader2 className="w-12 h-12 animate-spin text-primary-500 mx-auto mb-4" />
           <p className="text-gray-400">Carregando sua dieta...</p>
@@ -54,7 +54,7 @@ export function DietView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen pt-16 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header com stats */}
       <div className="bg-gradient-to-r from-primary-600 to-accent-600 p-6 pb-20">
         <div className="max-w-4xl mx-auto">
