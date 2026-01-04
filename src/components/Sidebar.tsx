@@ -49,10 +49,9 @@ const mainModules: MenuItem[] = [
   },
   {
     icon: Apple,
-    label: 'Alimentacao',
-    href: '/alimentacao',
-    description: 'Plano alimentar',
-    comingSoon: true,
+    label: 'Nutricao',
+    href: '/nutricao',
+    description: 'Plano alimentar com IA',
   },
   {
     icon: TrendingUp,
