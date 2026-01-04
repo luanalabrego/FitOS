@@ -135,8 +135,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Quick Meal Section - Só mostra se o perfil estiver completo */}
-        {isProfileComplete && <QuickMealSection />}
+        {/* Quick Meal Section - Mostra sempre (componente verifica internamente se tem dieta) */}
+        <QuickMealSection />
 
         {/* Stats Preview - Só mostra se o perfil NÃO estiver completo */}
         {!isProfileComplete && (
