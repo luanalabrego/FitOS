@@ -391,11 +391,19 @@ function buildDietPrompt(request: GPTDietRequest): string {
   const mealNames = generateMealNames(mealPlan.mealsPerDay, mealPlan.includeSnacks)
 
   // Verificar se deve usar apenas itens da geladeira
+  console.log('📋 buildDietPrompt - fridgeInventory recebido:', fridgeInventory)
+  console.log('📋 useOnlyFridgeItems:', fridgeInventory?.useOnlyFridgeItems)
+  console.log('📋 items:', fridgeInventory?.items)
+
   const useOnlyFridge = fridgeInventory?.useOnlyFridgeItems && fridgeInventory.items.length > 0
   const fridgeItemsList = fridgeInventory?.items || []
 
+  console.log('📋 useOnlyFridge (calculado):', useOnlyFridge)
+  console.log('📋 fridgeItemsList:', fridgeItemsList)
+
   // Se usar geladeira, criar prompt totalmente diferente
   if (useOnlyFridge) {
+    console.log('✅ USANDO MODO GELADEIRA - Prompt especial será gerado com', fridgeItemsList.length, 'itens')
     return `Você é um chef de cozinha brasileiro que vai criar um cardápio usando APENAS os ingredientes disponíveis.
 
 # INGREDIENTES DISPONÍVEIS (VOCÊ SÓ PODE USAR ESTES)
@@ -617,6 +625,14 @@ export async function generateDietWithGPT(
   }
 
   const data = await response.json()
+
+  // Verificar se é mock ou resposta real
+  if (data.isMock) {
+    console.warn('⚠️ ATENÇÃO: Usando dieta MOCK! A lista da geladeira NÃO foi considerada.')
+    console.warn('⚠️ Configure OPENAI_API_KEY no ambiente para usar IA real.')
+  } else {
+    console.log('✅ Dieta gerada pela IA real (GPT-4.1-mini)')
+  }
 
   // Processar resposta do GPT
   const gptDiet = data.diet
