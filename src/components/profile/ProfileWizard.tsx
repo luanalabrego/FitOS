@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Loader2, Cloud, CloudOff } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Loader2, Cloud, CloudOff, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useProfile, STEP_ORDER } from '@/contexts/ProfileContext'
 import { Button, ProgressSteps } from '@/components/ui'
 import {
@@ -52,6 +53,7 @@ interface ProfileWizardProps {
 }
 
 export function ProfileWizard({ onComplete }: ProfileWizardProps) {
+  const router = useRouter()
   const {
     state,
     nextStep,
@@ -64,6 +66,10 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
   } = useProfile()
 
   const [isCompleting, setIsCompleting] = useState(false)
+
+  const handleClose = useCallback(() => {
+    router.push('/')
+  }, [router])
 
   const { currentStep, completedSteps, profile, isLoading, isSaving, lastSaved, saveError } = state
 
@@ -184,6 +190,18 @@ export function ProfileWizard({ onComplete }: ProfileWizardProps) {
       {/* Header com progresso */}
       <div className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-lg border-b border-gray-800">
         <div className="max-w-2xl mx-auto px-4 py-4">
+          {/* Botão de fechar */}
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              aria-label="Voltar ao menu principal"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+            <span className="text-sm text-gray-500">Configurar Perfil</span>
+            <div className="w-9" /> {/* Spacer para centralizar o título */}
+          </div>
           <ProgressSteps
             steps={steps}
             currentStep={currentStep}
