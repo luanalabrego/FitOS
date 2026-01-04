@@ -80,8 +80,36 @@ export function ReviewStep() {
   const isLosing = (dietGoal?.currentWeight || 0) > (dietGoal?.targetWeight || 0)
   const isGaining = (dietGoal?.currentWeight || 0) < (dietGoal?.targetWeight || 0)
 
+  // Calcula as datas baseado na seleção
+  const getSelectedDates = (): Date[] => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (dateRange === 'today') {
+      return [today]
+    }
+
+    if (dateRange === 'tomorrow') {
+      const tomorrow = new Date(today)
+      tomorrow.setDate(today.getDate() + 1)
+      return [tomorrow]
+    }
+
+    // Para 'week' ou 'custom', gerar N dias a partir de hoje
+    const days = dateRange === 'week' ? 7 : customDays
+    const dates: Date[] = []
+    for (let i = 0; i < days; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + i)
+      dates.push(date)
+    }
+    return dates
+  }
+
   const handleGenerate = async () => {
-    await generateDiet()
+    const selectedDates = getSelectedDates()
+    console.log('📅 Gerando dieta para datas:', selectedDates.map(d => d.toLocaleDateString('pt-BR')))
+    await generateDiet(selectedDates)
   }
 
   return (

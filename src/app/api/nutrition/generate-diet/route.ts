@@ -5,6 +5,7 @@ interface DietParams {
   includeSnacks: boolean
   dietStyle: string
   calories: number
+  selectedDates?: string[]  // ISO date strings
 }
 
 interface FoodAlternative {
@@ -130,27 +131,49 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Helper functions for date handling
+function formatDateBR(date: Date): string {
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+function getDayNamePT(date: Date): string {
+  const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+  return days[date.getDay()]
+}
+
+function getDayOfWeek(date: Date): string {
+  const days = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado']
+  return days[date.getDay()]
+}
+
 // Dieta mock para desenvolvimento/fallback
 function generateMockDiet(params?: DietParams) {
   const mealsPerDay = params?.mealsPerDay || 4
   const dietStyle = params?.dietStyle || 'tradicional'
   const targetCalories = params?.calories || 2000
 
-  const days = [
-    { dayOfWeek: 'segunda', dayName: 'Segunda-feira' },
-    { dayOfWeek: 'terca', dayName: 'Terça-feira' },
-    { dayOfWeek: 'quarta', dayName: 'Quarta-feira' },
-    { dayOfWeek: 'quinta', dayName: 'Quinta-feira' },
-    { dayOfWeek: 'sexta', dayName: 'Sexta-feira' },
-    { dayOfWeek: 'sabado', dayName: 'Sábado' },
-    { dayOfWeek: 'domingo', dayName: 'Domingo' }
-  ]
+  // Gerar datas a partir das datas selecionadas ou padrão 7 dias a partir de hoje
+  let dates: Date[] = []
+  if (params?.selectedDates && params.selectedDates.length > 0) {
+    dates = params.selectedDates.map(d => new Date(d))
+  } else {
+    // Padrão: 7 dias a partir de hoje
+    const today = new Date()
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + i)
+      dates.push(date)
+    }
+  }
 
   // Gerar refeições baseadas no estilo de dieta
   const meals = generateMealsForStyle(dietStyle, mealsPerDay, targetCalories)
 
   return {
-    days: days.map((day, index) => {
+    days: dates.map((date, index) => {
       const dayMeals = meals.map((meal: MealItem) => ({
         ...meal,
         foods: meal.foods.map((food: FoodItem, foodIndex: number) => ({
@@ -163,7 +186,9 @@ function generateMockDiet(params?: DietParams) {
       const totals = calculateDayTotals(dayMeals)
 
       return {
-        ...day,
+        date: formatDateBR(date),
+        dayOfWeek: getDayOfWeek(date),
+        dayName: getDayNamePT(date),
         meals: dayMeals,
         ...totals,
         tips: getTipsForDay(index, dietStyle)

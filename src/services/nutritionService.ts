@@ -281,6 +281,7 @@ interface GPTDietRequest {
     items: string[]
     useOnlyFridgeItems: boolean
   }
+  selectedDates?: Date[]  // Datas específicas para gerar a dieta
 }
 
 /**
@@ -336,11 +337,59 @@ ESTILO: DIETA FLEXÍVEL (IIFYM)
 }
 
 /**
+ * Formata uma data para DD/MM/YYYY
+ */
+function formatDateBR(date: Date): string {
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+/**
+ * Retorna o nome do dia da semana em português
+ */
+function getDayNamePT(date: Date): string {
+  const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
+  return days[date.getDay()]
+}
+
+/**
+ * Retorna o dayOfWeek no formato usado pelo sistema
+ */
+function getDayOfWeek(date: Date): DayOfWeek {
+  const days: DayOfWeek[] = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado']
+  return days[date.getDay()]
+}
+
+/**
+ * Gera as datas para o cardápio (7 dias a partir de hoje se não especificado)
+ */
+function generateDietDates(selectedDates?: Date[]): Date[] {
+  if (selectedDates && selectedDates.length > 0) {
+    return selectedDates
+  }
+
+  // Padrão: 7 dias a partir de hoje
+  const dates: Date[] = []
+  const today = new Date()
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(today)
+    date.setDate(today.getDate() + i)
+    dates.push(date)
+  }
+  return dates
+}
+
+/**
  * Gera o prompt para o GPT-4.1-mini criar a dieta
  */
 function buildDietPrompt(request: GPTDietRequest): string {
-  const { userProfile, foodPreferences, dietGoal, mealPlan, nutritionTargets, fridgeInventory } = request
+  const { userProfile, foodPreferences, dietGoal, mealPlan, nutritionTargets, fridgeInventory, selectedDates } = request
   const { bodyComposition } = userProfile
+
+  // Gerar datas para o cardápio
+  const dietDates = generateDietDates(selectedDates)
 
   const goalLabels: Record<string, string> = {
     perda_peso: 'PERDA DE PESO - priorize déficit calórico e alta proteína para preservar massa magra',
@@ -401,9 +450,13 @@ function buildDietPrompt(request: GPTDietRequest): string {
   console.log('📋 useOnlyFridge (calculado):', useOnlyFridge)
   console.log('📋 fridgeItemsList:', fridgeItemsList)
 
+  // Gerar lista de datas formatadas para o prompt
+  const datesListForPrompt = dietDates.map(d => `• ${formatDateBR(d)} (${getDayNamePT(d)})`).join('\n')
+
   // Se usar geladeira, criar prompt totalmente diferente
   if (useOnlyFridge) {
     console.log('✅ USANDO MODO GELADEIRA - Prompt especial será gerado com', fridgeItemsList.length, 'itens')
+    console.log('📅 Datas para gerar:', dietDates.map(d => formatDateBR(d)))
     return `Você é um chef de cozinha brasileiro que vai criar um cardápio usando APENAS os ingredientes disponíveis.
 
 # INGREDIENTES DISPONÍVEIS (VOCÊ SÓ PODE USAR ESTES)
@@ -420,44 +473,51 @@ Se um ingrediente não está listado, ele NÃO EXISTE. Nem frutas, nem vegetais,
 - Estilo de dieta escolhido: **${dietStyleLabels[dietStyle]}**
 - Refeições por dia: ${mealPlan.mealsPerDay}
 
-# METAS NUTRICIONAIS DIÁRIAS
+# ⚠️ METAS NUTRICIONAIS DIÁRIAS - OBRIGATÓRIO SEGUIR
 
-- Calorias: ${nutritionTargets.calories} kcal
+- Calorias: **${nutritionTargets.calories} kcal** ← CADA DIA DEVE TOTALIZAR EXATAMENTE ESTE VALOR (±50 kcal)
 - Proteínas: ${nutritionTargets.protein}g
 - Carboidratos: ${nutritionTargets.carbs}g
 - Gorduras: ${nutritionTargets.fat}g
 
+⚠️ ATENÇÃO: O total de calorias de cada dia PRECISA ser aproximadamente ${nutritionTargets.calories} kcal!
+Se as refeições somarem menos que isso, AUMENTE as porções ou adicione mais alimentos.
+
+# DATAS PARA GERAR O CARDÁPIO
+
+${datesListForPrompt}
+
 # INSTRUÇÕES
 
-1. Crie um cardápio para 7 dias (segunda a domingo)
+1. Crie um cardápio para as ${dietDates.length} data(s) listadas acima
 2. Use APENAS os ingredientes da lista acima - seja criativo com diferentes preparos
 3. Cada dia deve ter ${mealPlan.mealsPerDay} refeições: ${mealNames.join(', ')}
-4. Varie as combinações - não repita a mesma refeição em dias seguidos
-5. As alternativas de cada alimento também devem estar na lista de ingredientes
-6. Nas dicas, sugira ingredientes que o usuário deveria COMPRAR para melhorar a dieta
+4. ⚠️ CADA DIA DEVE TOTALIZAR ~${nutritionTargets.calories} kcal - distribua as calorias entre as refeições
+5. Varie as combinações - não repita a mesma refeição em dias seguidos
+6. As alternativas de cada alimento também devem estar na lista de ingredientes
+7. Nas dicas, sugira ingredientes que o usuário deveria COMPRAR para melhorar a dieta
 
 # FORMATO DE RESPOSTA (APENAS JSON)
 
 {
   "days": [
-    {
-      "dayOfWeek": "segunda",
-      "dayName": "Segunda-feira",
+${dietDates.map(date => `    {
+      "date": "${formatDateBR(date)}",
+      "dayOfWeek": "${getDayOfWeek(date)}",
+      "dayName": "${getDayNamePT(date)}",
       "meals": [
 ${mealNames.map((name, i) => `        {
           "name": "${name}",
           "time": "${getMealTime(i, mealPlan.mealsPerDay)}",
           "foods": [
             {
-              "name": "DEVE ESTAR NA LISTA DE INGREDIENTES",
-              "quantity": "quantidade em gramas ou medida caseira",
+              "name": "ingrediente da lista",
+              "quantity": "quantidade em gramas",
               "calories": 0,
               "protein": 0,
               "carbs": 0,
               "fat": 0,
-              "alternatives": [
-                {"name": "alternativa da lista", "quantity": "qtd", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}
-              ]
+              "alternatives": [{"name": "alt", "quantity": "qtd", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}]
             }
           ],
           "totalCalories": 0,
@@ -466,19 +526,21 @@ ${mealNames.map((name, i) => `        {
           "totalFat": 0
         }`).join(',\n')}
       ],
-      "totalCalories": 0,
+      "totalCalories": ${nutritionTargets.calories},
       "totalProtein": 0,
       "totalCarbs": 0,
       "totalFat": 0,
-      "tips": ["Sugestão de compra: ...", "Dica de preparo: ..."]
-    }
+      "tips": ["Sugestão de compra: ...", "Dica: ..."]
+    }`).join(',\n')}
   ]
 }
 
-LEMBRE-SE: Use SOMENTE os ingredientes listados. Qualquer ingrediente fora da lista invalida a resposta.`
+⚠️ IMPORTANTE: Cada dia DEVE totalizar aproximadamente ${nutritionTargets.calories} kcal. Ajuste as porções para atingir esta meta!
+LEMBRE-SE: Use SOMENTE os ingredientes listados.`
   }
 
   // Prompt normal (sem restrição de geladeira)
+  console.log('📅 Datas para gerar (modo normal):', dietDates.map(d => formatDateBR(d)))
   return `Você é um NUTRICIONISTA ESPORTIVO BRASILEIRO ESPECIALISTA.
 
 # DADOS DO PACIENTE
@@ -493,15 +555,22 @@ LEMBRE-SE: Use SOMENTE os ingredientes listados. Qualquer ingrediente fora da li
 # ESTILO DE DIETA ESCOLHIDO: ${dietStyleLabels[dietStyle]}
 ${dietStyleInstruction}
 
-# METAS NUTRICIONAIS DIÁRIAS
+# ⚠️ METAS NUTRICIONAIS DIÁRIAS - OBRIGATÓRIO SEGUIR
 ${macroInstructions}
 - Fibras: ${nutritionTargets.fiber}g
 - Água: ${nutritionTargets.water}L
+
+⚠️ ATENÇÃO: O total de calorias de cada dia PRECISA ser aproximadamente ${nutritionTargets.calories} kcal!
+Se as refeições somarem menos que isso, AUMENTE as porções ou adicione mais alimentos.
 
 # PREFERÊNCIAS
 ${foodPreferences.dislikedFoods.length > 0 ? `- Não gosta: ${foodPreferences.dislikedFoods.join(', ')}` : ''}
 ${foodPreferences.mustHaveFoods.length > 0 ? `- Favoritos: ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
 ${foodPreferences.restrictions.length > 0 ? `- Restrições: ${foodPreferences.restrictions.join(', ')}` : ''}
+
+# DATAS PARA GERAR O CARDÁPIO
+
+${datesListForPrompt}
 
 # ALIMENTOS BRASILEIROS RECOMENDADOS
 - Proteínas: frango, carne moída, ovos, peixe, carne de panela, patinho
@@ -513,19 +582,21 @@ ${foodPreferences.restrictions.length > 0 ? `- Restrições: ${foodPreferences.r
 
 # INSTRUÇÕES
 
-1. Crie cardápio para 7 dias (segunda a domingo)
+1. Crie cardápio para as ${dietDates.length} data(s) listadas acima
 2. Cada dia: ${mealPlan.mealsPerDay} refeições (${mealNames.join(', ')})
-3. Siga o estilo de dieta ${dietStyleLabels[dietStyle]}
-4. Varie os alimentos para não enjoar
-5. Para cada alimento, forneça 2 alternativas
+3. ⚠️ CADA DIA DEVE TOTALIZAR ~${nutritionTargets.calories} kcal - distribua as calorias entre as refeições
+4. Siga o estilo de dieta ${dietStyleLabels[dietStyle]}
+5. Varie os alimentos para não enjoar
+6. Para cada alimento, forneça 2 alternativas
 
 # FORMATO JSON (RESPONDA APENAS O JSON)
 
 {
   "days": [
-    {
-      "dayOfWeek": "segunda",
-      "dayName": "Segunda-feira",
+${dietDates.map(date => `    {
+      "date": "${formatDateBR(date)}",
+      "dayOfWeek": "${getDayOfWeek(date)}",
+      "dayName": "${getDayNamePT(date)}",
       "meals": [
 ${mealNames.map((name, i) => `        {
           "name": "${name}",
@@ -550,14 +621,16 @@ ${mealNames.map((name, i) => `        {
           "totalFat": 0
         }`).join(',\n')}
       ],
-      "totalCalories": 0,
+      "totalCalories": ${nutritionTargets.calories},
       "totalProtein": 0,
       "totalCarbs": 0,
       "totalFat": 0,
       "tips": ["dica 1", "dica 2"]
-    }
+    }`).join(',\n')}
   ]
-}`
+}
+
+⚠️ IMPORTANTE: Cada dia DEVE totalizar aproximadamente ${nutritionTargets.calories} kcal!`
 }
 
 /**
@@ -615,7 +688,8 @@ export async function generateDietWithGPT(
         mealsPerDay: request.mealPlan.mealsPerDay,
         includeSnacks: request.mealPlan.includeSnacks,
         dietStyle: request.foodPreferences.dietStyle || 'tradicional',
-        calories: request.nutritionTargets.calories
+        calories: request.nutritionTargets.calories,
+        selectedDates: request.selectedDates?.map(d => d.toISOString()) || []
       }
     })
   })
