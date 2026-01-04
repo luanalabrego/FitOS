@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dumbbell,
@@ -11,16 +12,72 @@ import {
   ChevronRight,
   Zap,
   BarChart3,
-  Calendar
+  Calendar,
+  Sparkles
 } from 'lucide-react'
 import { Header, Logo, FeatureCard, GoalButton } from '@/components'
+import { getProfile } from '@/services/profileService'
+import { getCurrentUser, onAuthChange } from '@/services/authService'
+import { UserProfile } from '@/types/profile'
+
+const motivationalPhrases = [
+  'Cada dia e uma nova oportunidade de ser melhor.',
+  'O sucesso e a soma de pequenos esforcos repetidos diariamente.',
+  'Voce ja deu o primeiro passo. Continue assim!',
+  'A disciplina e a ponte entre metas e conquistas.',
+  'Seu corpo pode quase tudo. E sua mente que voce precisa convencer.',
+  'Grandes resultados exigem grandes comprometimentos.',
+  'O unico treino ruim e aquele que nao aconteceu.',
+  'Foco no progresso, nao na perfeicao.',
+]
 
 export default function Home() {
   const router = useRouter()
+  const [profile, setProfile] = useState<Partial<UserProfile> | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [motivationalPhrase, setMotivationalPhrase] = useState('')
+
+  useEffect(() => {
+    // Selecionar frase motivacional aleatoria
+    const randomIndex = Math.floor(Math.random() * motivationalPhrases.length)
+    setMotivationalPhrase(motivationalPhrases[randomIndex])
+
+    const loadProfile = async () => {
+      try {
+        const user = getCurrentUser()
+        if (user) {
+          const userProfile = await getProfile(user.uid)
+          setProfile(userProfile)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar perfil:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadProfile()
+
+    // Observar mudancas de autenticacao
+    const unsubscribe = onAuthChange(async (user) => {
+      if (user) {
+        const userProfile = await getProfile(user.uid)
+        setProfile(userProfile)
+      } else {
+        setProfile(null)
+      }
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const handleStartJourney = () => {
     router.push('/perfil')
   }
+
+  const isProfileComplete = profile?.onboardingCompleted === true
+  const userName = profile?.name?.split(' ')[0] || 'Usuario'
   return (
     <main className="min-h-screen pb-8">
       <Header />
@@ -35,16 +92,33 @@ export default function Home() {
             </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-bold mb-3 leading-tight">
-            Seu Sistema Operacional
-            <br />
-            <span className="text-primary-400">Fitness</span>
-          </h1>
+          {isProfileComplete ? (
+            <>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-3 leading-tight">
+                Ola, <span className="text-primary-400">{userName}</span>!
+              </h1>
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+                <p className="text-gray-400 text-sm sm:text-base max-w-xs leading-relaxed italic">
+                  "{motivationalPhrase}"
+                </p>
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-3 leading-tight">
+                Seu Sistema Operacional
+                <br />
+                <span className="text-primary-400">Fitness</span>
+              </h1>
 
-          <p className="text-gray-400 text-sm sm:text-base max-w-xs mx-auto leading-relaxed">
-            Centralize treinos, alimentacao e resultados.
-            Tudo mastigado para voce focar no que importa.
-          </p>
+              <p className="text-gray-400 text-sm sm:text-base max-w-xs mx-auto leading-relaxed">
+                Centralize treinos, alimentacao e resultados.
+                Tudo mastigado para voce focar no que importa.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Goals Quick Selection */}
@@ -123,26 +197,37 @@ export default function Home() {
           />
         </div>
 
-        {/* CTA Button */}
-        <div className="mt-8 animate-slide-up" style={{ animationDelay: '900ms' }}>
-          <button
-            onClick={handleStartJourney}
-            className="w-full bg-gradient-to-r from-primary-600 to-primary-500
-                       hover:from-primary-500 hover:to-primary-400
-                       text-white font-semibold py-4 px-6 rounded-2xl
-                       flex items-center justify-center gap-2
-                       shadow-lg shadow-primary-500/25
-                       hover:shadow-xl hover:shadow-primary-500/30
-                       transition-all duration-300 active:scale-[0.98]"
-          >
-            Comecar Minha Jornada
-            <ChevronRight className="w-5 h-5" />
-          </button>
+        {/* CTA Button - Só mostra se o perfil não estiver completo */}
+        {!isProfileComplete && (
+          <div className="mt-8 animate-slide-up" style={{ animationDelay: '900ms' }}>
+            <button
+              onClick={handleStartJourney}
+              className="w-full bg-gradient-to-r from-primary-600 to-primary-500
+                         hover:from-primary-500 hover:to-primary-400
+                         text-white font-semibold py-4 px-6 rounded-2xl
+                         flex items-center justify-center gap-2
+                         shadow-lg shadow-primary-500/25
+                         hover:shadow-xl hover:shadow-primary-500/30
+                         transition-all duration-300 active:scale-[0.98]"
+            >
+              Comecar Minha Jornada
+              <ChevronRight className="w-5 h-5" />
+            </button>
 
-          <p className="text-center text-gray-500 text-xs mt-4">
-            Gratis para comecar. Sem cartao de credito.
-          </p>
-        </div>
+            <p className="text-center text-gray-500 text-xs mt-4">
+              Gratis para comecar. Sem cartao de credito.
+            </p>
+          </div>
+        )}
+
+        {/* Quick Actions - Mostra quando o perfil estiver completo */}
+        {isProfileComplete && (
+          <div className="mt-8 animate-slide-up" style={{ animationDelay: '900ms' }}>
+            <p className="text-center text-gray-400 text-sm">
+              Use o menu <span className="text-primary-400">hamburguer</span> para acessar os modulos
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Bottom Gradient */}

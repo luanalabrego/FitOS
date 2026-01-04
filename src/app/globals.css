@@ -65,6 +65,10 @@ body {
   .animate-fade-in {
     animation: fadeIn 0.8s ease-out;
   }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+  }
 }
 
 @keyframes float {
@@ -86,4 +90,15 @@ body {
 @keyframes fadeIn {
   0% { opacity: 0; }
   100% { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
