@@ -205,7 +205,7 @@ interface NutritionContextType {
   prevStep: () => void
   goToStep: (step: NutritionStep) => void
   calculateTargets: () => void
-  generateDiet: () => Promise<void>
+  generateDiet: (selectedDates?: Date[]) => Promise<void>
   regenerateDiet: () => Promise<void>
   saveDietChanges: () => Promise<void>
   startEditing: () => void
