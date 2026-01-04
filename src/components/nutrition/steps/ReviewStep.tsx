@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useNutrition } from '@/contexts/NutritionContext'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -25,10 +26,18 @@ export function ReviewStep() {
   const { nutritionProfile, isGeneratingDiet } = state
   const { dietGoal, foodPreferences, mealPlan, nutritionTargets, weightProjection } = nutritionProfile
 
-  // Calcular targets se ainda não existir
-  if (!nutritionTargets && dietGoal?.currentWeight && dietGoal?.targetWeight) {
-    calculateTargets()
-  }
+  // Recalcular metas quando entrar na tela de revisão ou quando preferências mudarem
+  useEffect(() => {
+    if (dietGoal?.currentWeight && dietGoal?.targetWeight) {
+      calculateTargets()
+    }
+  }, [
+    dietGoal?.currentWeight,
+    dietGoal?.targetWeight,
+    dietGoal?.type,
+    dietGoal?.intensity,
+    foodPreferences?.dietStyle  // Recalcular quando o estilo de dieta mudar
+  ])
 
   const isLosing = (dietGoal?.currentWeight || 0) > (dietGoal?.targetWeight || 0)
   const isGaining = (dietGoal?.currentWeight || 0) < (dietGoal?.targetWeight || 0)
