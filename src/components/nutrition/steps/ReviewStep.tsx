@@ -18,6 +18,7 @@ import {
   Edit2
 } from 'lucide-react'
 import { DIET_STYLES, INTENSITY_OPTIONS } from '@/types/nutrition'
+import { DietLoadingScreen } from '../DietLoadingScreen'
 
 export function ReviewStep() {
   const { state, generateDiet, prevStep, goToStep, calculateTargets } = useNutrition()
@@ -327,20 +328,8 @@ export function ReviewStep() {
         </Button>
       </div>
 
-      {/* Mensagem durante geração */}
-      {isGeneratingDiet && (
-        <div className="text-center p-6 bg-gray-800/50 rounded-xl">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-500/20 mb-4">
-            <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
-          </div>
-          <p className="text-gray-300">
-            🧠 Nossa IA está criando sua dieta personalizada...
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            Isso pode levar alguns segundos
-          </p>
-        </div>
-      )}
+      {/* Tela de carregamento fullscreen */}
+      {isGeneratingDiet && <DietLoadingScreen />}
     </div>
   )
 }
