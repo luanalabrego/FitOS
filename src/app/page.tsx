@@ -3,19 +3,16 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Dumbbell,
   Apple,
   TrendingUp,
   Target,
-  Flame,
-  Heart,
   ChevronRight,
   Zap,
   BarChart3,
   Calendar,
   Sparkles
 } from 'lucide-react'
-import { Header, Logo, FeatureCard, GoalButton, QuickMealSection } from '@/components'
+import { Header, Logo, FeatureCard, QuickMealSection } from '@/components'
 import { getProfile } from '@/services/profileService'
 import { getCurrentUser, onAuthChange } from '@/services/authService'
 import { UserProfile } from '@/types/profile'
@@ -120,20 +117,6 @@ export default function Home() {
             </>
           )}
         </div>
-
-        {/* Goals Quick Selection - Só mostra se o perfil NÃO estiver completo */}
-        {!isProfileComplete && (
-          <div className="mt-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
-            <p className="text-gray-500 text-xs uppercase tracking-wider text-center mb-4 font-medium">
-              Qual seu objetivo?
-            </p>
-            <div className="flex justify-center gap-3">
-              <GoalButton icon={Dumbbell} label="Ganhar Massa" color="green" />
-              <GoalButton icon={Flame} label="Perder Peso" color="orange" />
-              <GoalButton icon={Heart} label="Condicio-namento" color="blue" />
-            </div>
-          </div>
-        )}
 
         {/* Quick Meal Section - Mostra sempre (componente verifica internamente se tem dieta) */}
         <QuickMealSection />
