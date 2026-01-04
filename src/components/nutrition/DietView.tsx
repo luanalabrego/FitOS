@@ -615,27 +615,35 @@ export function DietView() {
             </div>
           )}
 
-          {/* Stats do dia */}
+          {/* Stats do dia - Plano gerado para o dia selecionado */}
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
               <Flame className="w-5 h-5 text-orange-300 mx-auto mb-1" />
-              <p className="text-xl font-bold text-white">{nutritionTargets?.calories}</p>
-              <p className="text-xs text-primary-100">kcal</p>
+              <p className="text-xl font-bold text-white">{selectedDayData?.totalCalories || 0}</p>
+              <p className="text-xs text-primary-100">
+                kcal <span className="text-primary-200/70">({nutritionTargets?.calories})</span>
+              </p>
             </div>
             <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
               <span className="text-lg">🥩</span>
-              <p className="text-xl font-bold text-white">{nutritionTargets?.protein}g</p>
-              <p className="text-xs text-primary-100">proteína</p>
+              <p className="text-xl font-bold text-white">{selectedDayData?.totalProtein || 0}g</p>
+              <p className="text-xs text-primary-100">
+                prot <span className="text-primary-200/70">({nutritionTargets?.protein}g)</span>
+              </p>
             </div>
             <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
               <span className="text-lg">🍚</span>
-              <p className="text-xl font-bold text-white">{nutritionTargets?.carbs}g</p>
-              <p className="text-xs text-primary-100">carbs</p>
+              <p className="text-xl font-bold text-white">{selectedDayData?.totalCarbs || 0}g</p>
+              <p className="text-xs text-primary-100">
+                carbs <span className="text-primary-200/70">({nutritionTargets?.carbs}g)</span>
+              </p>
             </div>
             <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-              <Droplet className="w-5 h-5 text-cyan-300 mx-auto mb-1" />
-              <p className="text-xl font-bold text-white">{nutritionTargets?.water}L</p>
-              <p className="text-xs text-primary-100">água</p>
+              <span className="text-lg">🥑</span>
+              <p className="text-xl font-bold text-white">{selectedDayData?.totalFat || 0}g</p>
+              <p className="text-xs text-primary-100">
+                gord <span className="text-primary-200/70">({nutritionTargets?.fat}g)</span>
+              </p>
             </div>
           </div>
         </div>
