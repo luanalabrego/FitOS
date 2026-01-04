@@ -5,8 +5,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { INTENSITY_OPTIONS } from '@/types/nutrition'
-import { Target, TrendingDown, TrendingUp, Scale, Dumbbell, ArrowRight, Flame, Zap, Rocket } from 'lucide-react'
+import { Target, TrendingDown, TrendingUp, Scale, Dumbbell, ArrowRight, Flame, Zap, Rocket, AlertTriangle, Dumbbell as Exercise, Info } from 'lucide-react'
 import { useState, useEffect } from 'react'
+
+// Calorias mínimas recomendadas para saúde
+const MIN_CALORIES_MALE = 1500
+const MIN_CALORIES_FEMALE = 1200
+const DANGER_CALORIES_MALE = 1200
+const DANGER_CALORIES_FEMALE = 1000
 
 const GOAL_OPTIONS = [
   {
@@ -53,6 +59,19 @@ export function GoalStep() {
   const { state, dispatch, nextStep, userProfile, calculateTargets } = useNutrition()
   const { dietGoal } = state.nutritionProfile
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showCustomCalories, setShowCustomCalories] = useState(dietGoal?.useCustomCalories || false)
+
+  // Valores para alertas
+  const isMale = userProfile?.bodyComposition?.gender === 'masculino'
+  const minCalories = isMale ? MIN_CALORIES_MALE : MIN_CALORIES_FEMALE
+  const dangerCalories = isMale ? DANGER_CALORIES_MALE : DANGER_CALORIES_FEMALE
+  const calculatedCalories = state.nutritionProfile.nutritionTargets?.calories || 0
+  const customCalories = dietGoal?.customCalories || calculatedCalories
+  const activeCalories = dietGoal?.useCustomCalories ? customCalories : calculatedCalories
+
+  // Verificar alertas de saúde
+  const isCaloriesTooLow = activeCalories < minCalories && activeCalories > 0
+  const isCaloriesDangerous = activeCalories < dangerCalories && activeCalories > 0
 
   // Calcular metas quando os dados mudam
   useEffect(() => {
@@ -60,6 +79,11 @@ export function GoalStep() {
       calculateTargets()
     }
   }, [dietGoal?.currentWeight, dietGoal?.targetWeight, dietGoal?.type, dietGoal?.intensity])
+
+  // Sincronizar showCustomCalories com dietGoal
+  useEffect(() => {
+    setShowCustomCalories(dietGoal?.useCustomCalories || false)
+  }, [dietGoal?.useCustomCalories])
 
   const handleGoalSelect = (type: typeof GOAL_OPTIONS[number]['type']) => {
     dispatch({ type: 'UPDATE_DIET_GOAL', payload: { type } })
@@ -73,6 +97,26 @@ export function GoalStep() {
     const numValue = parseFloat(value) || 0
     dispatch({ type: 'UPDATE_DIET_GOAL', payload: { [field]: numValue } })
     setErrors(prev => ({ ...prev, [field]: '' }))
+  }
+
+  const handleCustomCaloriesToggle = () => {
+    const newValue = !showCustomCalories
+    setShowCustomCalories(newValue)
+    dispatch({
+      type: 'UPDATE_DIET_GOAL',
+      payload: {
+        useCustomCalories: newValue,
+        customCalories: newValue ? (dietGoal?.customCalories || calculatedCalories) : undefined
+      }
+    })
+  }
+
+  const handleCustomCaloriesChange = (value: string) => {
+    const numValue = parseInt(value) || 0
+    dispatch({
+      type: 'UPDATE_DIET_GOAL',
+      payload: { customCalories: numValue }
+    })
   }
 
   const validate = (): boolean => {
@@ -271,6 +315,136 @@ export function GoalStep() {
               <p className="text-sm text-gray-500 mt-3">
                 Meta prevista para {state.nutritionProfile.weightProjection.estimatedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card de Calorias Customizadas */}
+      {calculatedCalories > 0 && (
+        <Card>
+          <CardHeader
+            title="Calorias Diárias"
+            subtitle="Personalize suas calorias ou use o cálculo automático"
+            icon={<Flame className="w-6 h-6 text-orange-400" />}
+          />
+          <CardContent>
+            {/* Calorias calculadas automaticamente */}
+            <div className="p-4 bg-gray-800/50 rounded-xl mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Calorias recomendadas</p>
+                  <p className="text-2xl font-bold text-white">{calculatedCalories} kcal</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Baseado no seu</p>
+                  <p className="text-xs text-gray-500">perfil e objetivo</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Toggle para calorias customizadas */}
+            <button
+              onClick={handleCustomCaloriesToggle}
+              className={`
+                w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between
+                ${showCustomCalories
+                  ? 'border-primary-500 bg-primary-500/10'
+                  : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                }
+              `}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`
+                  w-10 h-10 rounded-lg flex items-center justify-center
+                  ${showCustomCalories ? 'bg-primary-500/20 text-primary-400' : 'bg-gray-700 text-gray-400'}
+                `}>
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-semibold text-white">Definir calorias manualmente</h4>
+                  <p className="text-sm text-gray-400">Eu sei quantas calorias quero consumir</p>
+                </div>
+              </div>
+              <div className={`
+                w-6 h-6 rounded-full flex items-center justify-center
+                ${showCustomCalories ? 'bg-primary-500 text-white' : 'bg-gray-700'}
+              `}>
+                {showCustomCalories && <span className="text-xs">✓</span>}
+              </div>
+            </button>
+
+            {/* Input de calorias customizadas */}
+            {showCustomCalories && (
+              <div className="mt-4">
+                <Input
+                  label="Suas calorias diárias"
+                  type="number"
+                  value={customCalories || ''}
+                  onChange={(e) => handleCustomCaloriesChange(e.target.value)}
+                  suffix="kcal"
+                  placeholder="Ex: 1800"
+                  className="text-center text-lg font-bold"
+                />
+              </div>
+            )}
+
+            {/* Alertas de saúde */}
+            {isCaloriesDangerous && (
+              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-400">Atenção: Calorias muito baixas!</p>
+                    <p className="text-sm text-red-300 mt-1">
+                      Consumir menos de {dangerCalories} kcal/dia pode ser perigoso para a saúde.
+                      Pode causar perda muscular, deficiências nutricionais e problemas metabólicos.
+                      Consulte um profissional de saúde antes de prosseguir.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isCaloriesTooLow && !isCaloriesDangerous && (
+              <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-yellow-400">Calorias abaixo do recomendado</p>
+                    <p className="text-sm text-yellow-300 mt-1">
+                      O mínimo recomendado para {isMale ? 'homens' : 'mulheres'} é {minCalories} kcal/dia.
+                      Dietas muito restritivas podem ser difíceis de manter e causar efeito sanfona.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Alerta de Exercício Físico */}
+      {dietGoal?.type === 'perda_peso' && (
+        <Card className="border-green-500/30 bg-gradient-to-br from-green-500/5 to-teal-500/5">
+          <CardContent className="py-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <Dumbbell className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-green-400 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Dica: Combine com exercícios!
+                </h4>
+                <p className="text-sm text-gray-300 mt-2">
+                  Com exercício físico regular, a queima de calorias pode ser ainda maior!
+                  Uma caminhada de 30 minutos queima aproximadamente <strong className="text-green-400">150-200 kcal</strong>.
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  💡 Musculação + cardio = maior gasto calórico e preservação muscular
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

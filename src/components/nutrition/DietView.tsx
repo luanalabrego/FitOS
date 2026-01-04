@@ -19,12 +19,41 @@ import {
   ChevronDown,
   ChevronUp,
   Target,
-  Sparkles
+  Sparkles,
+  ArrowRightLeft,
+  X
 } from 'lucide-react'
 import { useState } from 'react'
+import { FoodItem } from '@/types/nutrition'
+
+// Opções de substituição por categoria
+const FOOD_SUBSTITUTIONS: Record<string, string[]> = {
+  // Proteínas
+  'frango': ['peito de peru', 'peixe', 'carne moída magra', 'ovo', 'tofu'],
+  'carne': ['frango', 'peixe', 'ovo', 'carne de porco magra'],
+  'peixe': ['frango', 'atum em lata', 'sardinha', 'ovo'],
+  'ovo': ['clara de ovo', 'tofu', 'queijo cottage'],
+  'bacon': ['peito de peru defumado', 'presunto magro'],
+  // Carboidratos
+  'arroz': ['arroz integral', 'quinoa', 'batata', 'macarrão integral'],
+  'pão': ['tapioca', 'cuscuz', 'batata doce', 'wrap integral'],
+  'batata': ['batata doce', 'mandioca', 'inhame', 'arroz'],
+  'macarrão': ['macarrão integral', 'abobrinha espaguete', 'arroz'],
+  // Vegetais
+  'brócolis': ['couve-flor', 'couve', 'espinafre', 'vagem'],
+  'alface': ['rúcula', 'agrião', 'acelga', 'repolho'],
+  'tomate': ['pimentão', 'cenoura ralada', 'beterraba'],
+  // Frutas
+  'banana': ['maçã', 'mamão', 'manga', 'pera'],
+  'maçã': ['pera', 'banana', 'morango', 'kiwi'],
+  // Laticínios
+  'leite': ['leite desnatado', 'leite de amêndoas', 'leite de aveia'],
+  'queijo': ['queijo cottage', 'ricota', 'queijo minas light'],
+  'iogurte': ['iogurte grego', 'coalhada', 'kefir']
+}
 
 export function DietView() {
-  const { state, dispatch, goToStep, regenerateDiet } = useNutrition()
+  const { state, dispatch, startEditing, regenerateDiet } = useNutrition()
   const { nutritionProfile, selectedDay, isGeneratingDiet } = state
   const { currentDiet, nutritionTargets, weightProjection, dietGoal } = nutritionProfile
 
@@ -68,8 +97,9 @@ export function DietView() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => goToStep('objetivo')}
+                onClick={startEditing}
                 className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                title="Editar preferências"
               >
                 <Settings className="w-5 h-5 text-white" />
               </button>
@@ -350,7 +380,7 @@ export function DietView() {
 
         {/* Botão de ajustar */}
         <Button
-          onClick={() => goToStep('objetivo')}
+          onClick={startEditing}
           variant="outline"
           size="lg"
           fullWidth
@@ -364,6 +394,28 @@ export function DietView() {
   )
 }
 
+// Função para encontrar substituições para um alimento
+function findSubstitutions(foodName: string): string[] {
+  const lowerName = foodName.toLowerCase()
+
+  // Procura correspondência direta ou parcial
+  for (const [key, subs] of Object.entries(FOOD_SUBSTITUTIONS)) {
+    if (lowerName.includes(key) || key.includes(lowerName.split(' ')[0])) {
+      return subs
+    }
+  }
+
+  // Substitutos genéricos por tipo de alimento
+  if (lowerName.includes('grelhad') || lowerName.includes('carne') || lowerName.includes('frango') || lowerName.includes('peixe')) {
+    return ['frango grelhado', 'carne moída', 'ovo cozido', 'peixe grelhado', 'atum em lata']
+  }
+  if (lowerName.includes('salada') || lowerName.includes('folha') || lowerName.includes('verde')) {
+    return ['alface', 'rúcula', 'agrião', 'couve', 'espinafre']
+  }
+
+  return ['Não há sugestões específicas para este alimento']
+}
+
 // Componente de Card de Refeição
 interface MealCardProps {
   meal: Meal
@@ -373,6 +425,7 @@ interface MealCardProps {
 }
 
 function MealCard({ meal, index, isExpanded, onToggle }: MealCardProps) {
+  const [showSubstitutions, setShowSubstitutions] = useState<number | null>(null)
   const mealEmojis = ['☕', '🍎', '🍽️', '🥪', '🌙', '🌜']
   const mealColors = [
     'from-orange-500/20 to-yellow-500/20',
@@ -443,20 +496,63 @@ function MealCard({ meal, index, isExpanded, onToggle }: MealCardProps) {
           {/* Lista de alimentos */}
           <div className="space-y-2">
             {meal.foods.map((food, foodIndex) => (
-              <div
-                key={foodIndex}
-                className="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
-              >
-                <div className="flex-1">
-                  <p className="text-white font-medium">{food.name}</p>
-                  <p className="text-sm text-gray-400">{food.quantity}</p>
+              <div key={foodIndex} className="relative">
+                <div
+                  className="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
+                >
+                  <div className="flex-1">
+                    <p className="text-white font-medium">{food.name}</p>
+                    <p className="text-sm text-gray-400">{food.quantity}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-primary-400">{food.calories} kcal</p>
+                      <p className="text-xs text-gray-500">
+                        P:{food.protein} C:{food.carbs} G:{food.fat}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowSubstitutions(showSubstitutions === foodIndex ? null : foodIndex)
+                      }}
+                      className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Ver opções de substituição"
+                    >
+                      <ArrowRightLeft className="w-4 h-4 text-gray-400 hover:text-primary-400" />
+                    </button>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-primary-400">{food.calories} kcal</p>
-                  <p className="text-xs text-gray-500">
-                    P:{food.protein} C:{food.carbs} G:{food.fat}
-                  </p>
-                </div>
+
+                {/* Painel de substituições */}
+                {showSubstitutions === foodIndex && (
+                  <div className="mt-2 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-300">
+                        Não gostou? Substitua por:
+                      </p>
+                      <button
+                        onClick={() => setShowSubstitutions(null)}
+                        className="p-1 hover:bg-gray-600 rounded"
+                      >
+                        <X className="w-4 h-4 text-gray-400" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {findSubstitutions(food.name).map((sub, subIndex) => (
+                        <span
+                          key={subIndex}
+                          className="px-3 py-1 bg-primary-500/20 text-primary-300 text-sm rounded-full"
+                        >
+                          {sub}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      * Mantenha quantidades similares para manter os macros
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

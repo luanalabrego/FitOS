@@ -31,6 +31,10 @@ export interface DietGoal {
   targetWeight: number
   // Data alvo (opcional)
   targetDate?: Date
+  // Calorias customizadas (opcional - sobrescreve cálculo automático)
+  customCalories?: number
+  // Se está usando calorias customizadas
+  useCustomCalories?: boolean
 }
 
 export interface MealPlan {
@@ -175,6 +179,8 @@ export interface NutritionState {
   error: string | null
   // Dieta sendo visualizada
   selectedDay: DayOfWeek
+  // Está em modo de edição (dieta já existe)
+  isEditing: boolean
 }
 
 export type NutritionStep =
@@ -200,6 +206,7 @@ export type NutritionAction =
   | { type: 'SET_GENERATING'; payload: boolean }
   | { type: 'SET_SAVING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_EDITING'; payload: boolean }
   | { type: 'RESET' }
 
 // Opções predefinidas para UI
