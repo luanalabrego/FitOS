@@ -664,7 +664,7 @@ export function DietView() {
             </button>
 
             {/* Dias */}
-            <div className="flex-1 flex gap-1 overflow-x-auto pb-1">
+            <div className="flex-1 grid grid-cols-7 gap-0.5">
               {visibleDates.map((date) => {
                 const dateKey = getDateKey(date)
                 const isSelected = dateKey === getDateKey(selectedDate)
@@ -675,7 +675,7 @@ export function DietView() {
                     key={dateKey}
                     onClick={() => setSelectedDate(new Date(date))}
                     className={`
-                      flex-1 min-w-[50px] py-3 px-1 rounded-xl transition-all
+                      py-2 px-0.5 rounded-xl transition-all text-center
                       ${isSelected
                         ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-lg'
                         : isDayToday
@@ -684,14 +684,14 @@ export function DietView() {
                       }
                     `}
                   >
-                    <p className={`text-xs ${isSelected ? 'text-primary-100' : isDayToday ? 'text-primary-300' : 'text-gray-500'}`}>
+                    <p className={`text-[10px] ${isSelected ? 'text-primary-100' : isDayToday ? 'text-primary-300' : 'text-gray-500'}`}>
                       {getDayShortName(date)}
                     </p>
-                    <p className={`text-sm font-bold ${isSelected ? 'text-white' : isDayToday ? 'text-primary-400' : 'text-gray-300'}`}>
+                    <p className={`text-xs font-bold ${isSelected ? 'text-white' : isDayToday ? 'text-primary-400' : 'text-gray-300'}`}>
                       {formatDateDisplay(date)}
                     </p>
                     {isDayToday && (
-                      <div className={`w-1.5 h-1.5 rounded-full mx-auto mt-1 ${isSelected ? 'bg-white' : 'bg-primary-500'}`} />
+                      <div className={`w-1 h-1 rounded-full mx-auto mt-0.5 ${isSelected ? 'bg-white' : 'bg-primary-500'}`} />
                     )}
                   </button>
                 )
