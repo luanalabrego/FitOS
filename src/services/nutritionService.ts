@@ -189,30 +189,119 @@ interface GPTDietRequest {
 }
 
 /**
- * Gera o prompt para o GPT-4.1 criar a dieta
+ * Retorna instruções específicas para cada estilo de dieta
+ */
+function getDietStyleInstructions(dietStyle: string): string {
+  const instructions: Record<string, string> = {
+    tradicional: `
+ESTILO: DIETA BRASILEIRA TRADICIONAL
+- Base: arroz, feijão, proteína e salada
+- Distribua os carboidratos ao longo do dia
+- Priorize alimentos naturais e integrais`,
+    low_carb: `
+ESTILO: LOW CARB (OBRIGATÓRIO)
+- MÁXIMO 100g de carboidratos por dia
+- PROIBIDO: arroz, pão, macarrão, batata, açúcar, frutas doces
+- PERMITIDO: vegetais folhosos, legumes com baixo carb (abobrinha, brócolis, couve-flor)
+- Priorize: proteínas e gorduras boas (azeite, abacate, castanhas)
+- Substitua arroz por: couve-flor ralada, abobrinha espaguete`,
+    cetogenica: `
+ESTILO: DIETA CETOGÊNICA (OBRIGATÓRIO - SIGA RIGOROSAMENTE)
+- MÁXIMO 20-30g de carboidratos LÍQUIDOS por dia (total - fibras)
+- PROIBIDO TOTALMENTE: arroz, feijão, pão, macarrão, batata, batata doce, frutas (exceto abacate e frutas vermelhas em pequena quantidade), açúcar, mel, grãos
+- OBRIGATÓRIO: 70-75% das calorias de GORDURA, 20-25% de PROTEÍNA, máximo 5% de carboidratos
+- PRIORIZE: carnes gordas, bacon, ovos, queijos, manteiga, azeite, abacate, castanhas, creme de leite, óleo de coco
+- Vegetais permitidos: folhas verdes, brócolis, couve-flor, aspargos, abobrinha
+- CADA REFEIÇÃO deve ter ALTO teor de gordura e MÍNIMO de carboidratos`,
+    mediterranea: `
+ESTILO: DIETA MEDITERRÂNEA
+- Base: azeite de oliva extra virgem, peixes, vegetais frescos
+- Inclua: leguminosas, grãos integrais, nozes
+- Proteínas: priorize peixes (salmão, sardinha, atum) e frango
+- Use ervas e especiarias para temperar`,
+    vegetariana: `
+ESTILO: DIETA VEGETARIANA (OBRIGATÓRIO)
+- PROIBIDO: qualquer tipo de carne (bovina, frango, peixe, frutos do mar)
+- PERMITIDO: ovos, leite e derivados
+- Fontes de proteína: ovos, queijos, iogurte, tofu, leguminosas, grão de bico
+- Combine cereais com leguminosas para proteína completa`,
+    vegana: `
+ESTILO: DIETA VEGANA (OBRIGATÓRIO)
+- PROIBIDO: qualquer produto de origem animal (carnes, ovos, leite, queijo, mel)
+- Fontes de proteína: tofu, tempeh, leguminosas, grão de bico, lentilha, quinoa, edamame
+- Inclua: sementes de chia, linhaça, castanhas para ômega-3
+- Suplementar vitamina B12 é recomendado`,
+    flexivel: `
+ESTILO: DIETA FLEXÍVEL (IIFYM)
+- Foque em atingir os macros diários
+- Varie os alimentos para nutrição completa
+- 80% alimentos nutritivos, 20% pode ser mais flexível`
+  }
+  return instructions[dietStyle] || instructions.tradicional
+}
+
+/**
+ * Gera o prompt para o GPT-4.1-mini criar a dieta
  */
 function buildDietPrompt(request: GPTDietRequest): string {
   const { userProfile, foodPreferences, dietGoal, mealPlan, nutritionTargets } = request
   const { bodyComposition } = userProfile
 
   const goalLabels: Record<string, string> = {
-    perda_peso: 'perda de peso',
-    ganho_massa: 'ganho de massa muscular',
-    manutencao: 'manutenção do peso',
-    recomposicao: 'recomposição corporal'
+    perda_peso: 'PERDA DE PESO - priorize déficit calórico e alta proteína para preservar massa magra',
+    ganho_massa: 'GANHO DE MASSA MUSCULAR - priorize superávit calórico controlado e alta proteína',
+    manutencao: 'MANUTENÇÃO DO PESO - equilibre calorias com gasto energético',
+    recomposicao: 'RECOMPOSIÇÃO CORPORAL - alta proteína, déficit leve, priorize treino de força'
   }
 
   const dietStyleLabels: Record<string, string> = {
-    tradicional: 'brasileira tradicional (arroz, feijão, proteína, salada)',
-    low_carb: 'low carb',
-    cetogenica: 'cetogênica',
-    mediterranea: 'mediterrânea',
-    vegetariana: 'vegetariana',
-    vegana: 'vegana',
-    flexivel: 'flexível'
+    tradicional: 'Brasileira tradicional',
+    low_carb: 'Low Carb (máximo 100g carbs/dia)',
+    cetogenica: 'CETOGÊNICA (máximo 20-30g carbs/dia, 70% gordura)',
+    mediterranea: 'Mediterrânea',
+    vegetariana: 'Vegetariana (sem carnes)',
+    vegana: 'Vegana (sem produtos animais)',
+    flexivel: 'Flexível (IIFYM)'
   }
 
-  return `Você é um nutricionista esportivo experiente. Crie um plano alimentar semanal personalizado.
+  const dietStyle = foodPreferences.dietStyle || 'tradicional'
+  const dietStyleInstruction = getDietStyleInstructions(dietStyle)
+
+  // Ajustar macros para dieta cetogênica
+  let macroInstructions = `
+- Calorias alvo: ${nutritionTargets.calories}kcal
+- Proteínas: ${nutritionTargets.protein}g
+- Carboidratos: ${nutritionTargets.carbs}g
+- Gorduras: ${nutritionTargets.fat}g`
+
+  if (dietStyle === 'cetogenica') {
+    const ketoFat = Math.round((nutritionTargets.calories * 0.75) / 9)
+    const ketoProtein = Math.round((nutritionTargets.calories * 0.20) / 4)
+    const ketoCarbs = 25 // máximo 25g para cetose
+    macroInstructions = `
+- Calorias alvo: ${nutritionTargets.calories}kcal
+- GORDURAS: ${ketoFat}g (75% das calorias) - PRIORIDADE MÁXIMA
+- PROTEÍNAS: ${ketoProtein}g (20% das calorias)
+- CARBOIDRATOS: MÁXIMO ${ketoCarbs}g (5% das calorias) - NÃO ULTRAPASSAR`
+  } else if (dietStyle === 'low_carb') {
+    const lowCarbCarbs = Math.min(nutritionTargets.carbs, 100)
+    macroInstructions = `
+- Calorias alvo: ${nutritionTargets.calories}kcal
+- Proteínas: ${nutritionTargets.protein}g
+- Carboidratos: MÁXIMO ${lowCarbCarbs}g
+- Gorduras: ${nutritionTargets.fat}g`
+  }
+
+  // Gerar nomes das refeições baseado no número escolhido
+  const mealNames = generateMealNames(mealPlan.mealsPerDay, mealPlan.includeSnacks)
+
+  return `Você é um NUTRICIONISTA ESPORTIVO ESPECIALISTA focado no objetivo do paciente.
+Sua missão é criar um plano alimentar que RESPEITE RIGOROSAMENTE todas as especificações.
+
+## REGRAS ABSOLUTAS (NÃO VIOLAR)
+1. NÚMERO DE REFEIÇÕES: EXATAMENTE ${mealPlan.mealsPerDay} refeições por dia. NÃO MAIS, NÃO MENOS.
+2. ESTILO DE DIETA: ${dietStyleLabels[dietStyle]} - SIGA RIGOROSAMENTE
+3. Os macros de cada dia DEVEM estar próximos das metas
 
 ## DADOS DO PACIENTE
 - Sexo: ${bodyComposition.gender === 'masculino' ? 'Masculino' : bodyComposition.gender === 'feminino' ? 'Feminino' : 'Outro'}
@@ -221,65 +310,49 @@ function buildDietPrompt(request: GPTDietRequest): string {
 - Altura: ${bodyComposition.height}cm
 - Peso meta: ${dietGoal.targetWeight}kg
 - Objetivo: ${goalLabels[dietGoal.type]}
-- Taxa metabólica basal: ${bodyComposition.basalMetabolism || 'não informada'}kcal
-- Gasto calórico diário: ${bodyComposition.dailyMetabolism || 'não informado'}kcal
 
-## METAS NUTRICIONAIS DIÁRIAS
-- Calorias: ${nutritionTargets.calories}kcal
-- Proteínas: ${nutritionTargets.protein}g (${nutritionTargets.proteinPercent}%)
-- Carboidratos: ${nutritionTargets.carbs}g (${nutritionTargets.carbsPercent}%)
-- Gorduras: ${nutritionTargets.fat}g (${nutritionTargets.fatPercent}%)
+## METAS NUTRICIONAIS DIÁRIAS${macroInstructions}
 - Fibras: ${nutritionTargets.fiber}g
 - Água: ${nutritionTargets.water}L
+${dietStyleInstruction}
 
-## PREFERÊNCIAS ALIMENTARES
-- Estilo de dieta: ${foodPreferences.dietStyle ? dietStyleLabels[foodPreferences.dietStyle] : 'tradicional brasileira'}
-- Refeições por dia: ${mealPlan.mealsPerDay}
-- Incluir lanches: ${mealPlan.includeSnacks ? 'Sim' : 'Não'}
-${foodPreferences.dislikedFoods.length > 0 ? `- NÃO INCLUIR (não gosta): ${foodPreferences.dislikedFoods.join(', ')}` : ''}
-${foodPreferences.mustHaveFoods.length > 0 ? `- MANTER NA DIETA (favoritos): ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
-${foodPreferences.restrictions.length > 0 ? `- RESTRIÇÕES ALIMENTARES: ${foodPreferences.restrictions.join(', ')}` : ''}
+## PREFERÊNCIAS DO PACIENTE
+${foodPreferences.dislikedFoods.length > 0 ? `- PROIBIDO (não gosta): ${foodPreferences.dislikedFoods.join(', ')}` : ''}
+${foodPreferences.mustHaveFoods.length > 0 ? `- INCLUIR (favoritos): ${foodPreferences.mustHaveFoods.join(', ')}` : ''}
+${foodPreferences.restrictions.length > 0 ? `- RESTRIÇÕES/ALERGIAS: ${foodPreferences.restrictions.join(', ')}` : ''}
 
-## INSTRUÇÕES
-1. Crie um cardápio para cada dia da semana (segunda a domingo)
-2. Para cada refeição, liste os alimentos com quantidades em gramas ou medidas caseiras
-3. Inclua os macros de cada refeição
-4. Varie os alimentos durante a semana para não enjoar
-5. Use alimentos acessíveis e comuns no Brasil
-6. Dê dicas práticas de preparo quando relevante
+## REFEIÇÕES DO DIA (EXATAMENTE ${mealPlan.mealsPerDay})
+${mealNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
 
-## FORMATO DE RESPOSTA (JSON)
-Responda APENAS com o JSON válido, sem texto adicional:
+## INSTRUÇÕES FINAIS
+1. Crie cardápio para os 7 dias da semana (segunda a domingo)
+2. CADA DIA deve ter EXATAMENTE ${mealPlan.mealsPerDay} refeições com os nomes especificados acima
+3. Liste alimentos com quantidades em gramas ou medidas caseiras
+4. Varie os alimentos para não enjoar
+5. Use alimentos acessíveis no Brasil
+6. Dê 2 dicas práticas por dia
 
+## FORMATO JSON (RESPONDA APENAS O JSON)
 {
   "days": [
     {
       "dayOfWeek": "segunda",
       "dayName": "Segunda-feira",
       "meals": [
-        {
-          "name": "Café da Manhã",
-          "time": "07:00",
-          "foods": [
-            {
-              "name": "Nome do alimento",
-              "quantity": "quantidade",
-              "calories": numero,
-              "protein": numero,
-              "carbs": numero,
-              "fat": numero
-            }
-          ],
-          "totalCalories": numero,
-          "totalProtein": numero,
-          "totalCarbs": numero,
-          "totalFat": numero
-        }
+${mealNames.map((name, i) => `        {
+          "name": "${name}",
+          "time": "${getMealTime(i, mealPlan.mealsPerDay)}",
+          "foods": [{"name": "...", "quantity": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}],
+          "totalCalories": 0,
+          "totalProtein": 0,
+          "totalCarbs": 0,
+          "totalFat": 0
+        }`).join(',\n')}
       ],
-      "totalCalories": numero,
-      "totalProtein": numero,
-      "totalCarbs": numero,
-      "totalFat": numero,
+      "totalCalories": 0,
+      "totalProtein": 0,
+      "totalCarbs": 0,
+      "totalFat": 0,
       "tips": ["dica 1", "dica 2"]
     }
   ]
@@ -287,7 +360,42 @@ Responda APENAS com o JSON válido, sem texto adicional:
 }
 
 /**
- * Chama a API do GPT-4.1 para gerar a dieta
+ * Gera os nomes das refeições baseado no número escolhido
+ */
+function generateMealNames(mealsPerDay: number, includeSnacks: boolean): string[] {
+  if (mealsPerDay <= 3) {
+    return ['Café da Manhã', 'Almoço', 'Jantar'].slice(0, mealsPerDay)
+  }
+
+  if (mealsPerDay === 4) {
+    return includeSnacks
+      ? ['Café da Manhã', 'Almoço', 'Lanche da Tarde', 'Jantar']
+      : ['Café da Manhã', 'Almoço', 'Jantar', 'Ceia']
+  }
+
+  if (mealsPerDay === 5) {
+    return ['Café da Manhã', 'Lanche da Manhã', 'Almoço', 'Lanche da Tarde', 'Jantar']
+  }
+
+  // 6 ou mais
+  return ['Café da Manhã', 'Lanche da Manhã', 'Almoço', 'Lanche da Tarde', 'Jantar', 'Ceia'].slice(0, mealsPerDay)
+}
+
+/**
+ * Retorna horário estimado para cada refeição
+ */
+function getMealTime(index: number, totalMeals: number): string {
+  const times: Record<number, string[]> = {
+    3: ['07:00', '12:30', '19:30'],
+    4: ['07:00', '12:30', '16:00', '19:30'],
+    5: ['07:00', '10:00', '12:30', '16:00', '19:30'],
+    6: ['07:00', '10:00', '12:30', '16:00', '19:30', '21:30']
+  }
+  return times[totalMeals]?.[index] || '12:00'
+}
+
+/**
+ * Chama a API do GPT-4.1-mini para gerar a dieta
  */
 export async function generateDietWithGPT(
   request: GPTDietRequest
@@ -299,7 +407,16 @@ export async function generateDietWithGPT(
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({
+      prompt,
+      // Parâmetros para fallback/mock
+      dietParams: {
+        mealsPerDay: request.mealPlan.mealsPerDay,
+        includeSnacks: request.mealPlan.includeSnacks,
+        dietStyle: request.foodPreferences.dietStyle || 'tradicional',
+        calories: request.nutritionTargets.calories
+      }
+    })
   })
 
   if (!response.ok) {
