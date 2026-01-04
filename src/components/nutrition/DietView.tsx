@@ -173,11 +173,31 @@ export function DietView() {
   // Abrir modal de registro de refeição
   const openMealLogModal = (meal: Meal) => {
     setSelectedMealForLog(meal)
-    setSelectedFoods([])
     setShowCustomInput(false)
     setCustomFoodName('')
     setCustomFoodGrams('')
-    setQuantityMultipliers({})
+
+    // Verificar se já existe consumo registrado para esta refeição
+    const existingLog = dailyConsumption?.mealLogs.find(log => log.mealName === meal.name)
+
+    if (existingLog && existingLog.foods.length > 0) {
+      // Carregar os alimentos já registrados
+      setSelectedFoods(existingLog.foods)
+
+      // Recalcular multiplicadores baseados nos valores salvos vs originais
+      const multipliers: Record<string, number> = {}
+      existingLog.foods.forEach(consumedFood => {
+        const originalFood = meal.foods.find(f => f.name === consumedFood.name)
+        if (originalFood && !consumedFood.isCustom) {
+          multipliers[consumedFood.name] = consumedFood.calories / originalFood.calories
+        }
+      })
+      setQuantityMultipliers(multipliers)
+    } else {
+      setSelectedFoods([])
+      setQuantityMultipliers({})
+    }
+
     setShowMealLogModal(true)
   }
 
@@ -246,8 +266,12 @@ export function DietView() {
   const registerSkippedMeal = () => {
     if (!selectedMealForLog || !dailyConsumption) return
 
+    // Verificar se já existe um log para esta refeição
+    const existingLogIndex = dailyConsumption.mealLogs.findIndex(log => log.mealName === selectedMealForLog.name)
+    const existingLog = existingLogIndex >= 0 ? dailyConsumption.mealLogs[existingLogIndex] : null
+
     const mealLog: MealLog = {
-      id: `log_${Date.now()}`,
+      id: existingLog?.id || `log_${Date.now()}`,
       date: selectedDate,
       mealName: selectedMealForLog.name,
       foods: [],
@@ -255,12 +279,36 @@ export function DietView() {
       totalProtein: 0,
       totalCarbs: 0,
       totalFat: 0,
-      createdAt: new Date()
+      createdAt: existingLog?.createdAt || new Date()
+    }
+
+    // Atualizar totais (subtrair o antigo se existir)
+    let newMealLogs: MealLog[]
+    let caloriesDiff = 0
+    let proteinDiff = 0
+    let carbsDiff = 0
+    let fatDiff = 0
+
+    if (existingLog) {
+      // Substituir o log existente
+      newMealLogs = dailyConsumption.mealLogs.map(log =>
+        log.mealName === selectedMealForLog.name ? mealLog : log
+      )
+      caloriesDiff = -existingLog.totalCalories
+      proteinDiff = -existingLog.totalProtein
+      carbsDiff = -existingLog.totalCarbs
+      fatDiff = -existingLog.totalFat
+    } else {
+      newMealLogs = [...dailyConsumption.mealLogs, mealLog]
     }
 
     const updatedConsumption: DailyConsumption = {
       ...dailyConsumption,
-      mealLogs: [...dailyConsumption.mealLogs, mealLog]
+      mealLogs: newMealLogs,
+      totalCalories: Math.max(0, dailyConsumption.totalCalories + caloriesDiff),
+      totalProtein: Math.max(0, dailyConsumption.totalProtein + proteinDiff),
+      totalCarbs: Math.max(0, dailyConsumption.totalCarbs + carbsDiff),
+      totalFat: Math.max(0, dailyConsumption.totalFat + fatDiff)
     }
 
     saveConsumption(updatedConsumption)
@@ -312,25 +360,54 @@ export function DietView() {
   const registerMeal = () => {
     if (!selectedMealForLog || selectedFoods.length === 0 || !dailyConsumption) return
 
+    // Verificar se já existe um log para esta refeição
+    const existingLogIndex = dailyConsumption.mealLogs.findIndex(log => log.mealName === selectedMealForLog.name)
+    const existingLog = existingLogIndex >= 0 ? dailyConsumption.mealLogs[existingLogIndex] : null
+
+    const newTotalCalories = selectedFoods.reduce((sum, f) => sum + f.calories, 0)
+    const newTotalProtein = selectedFoods.reduce((sum, f) => sum + f.protein, 0)
+    const newTotalCarbs = selectedFoods.reduce((sum, f) => sum + f.carbs, 0)
+    const newTotalFat = selectedFoods.reduce((sum, f) => sum + f.fat, 0)
+
     const mealLog: MealLog = {
-      id: `log_${Date.now()}`,
-      date: new Date(),
+      id: existingLog?.id || `log_${Date.now()}`,
+      date: selectedDate,
       mealName: selectedMealForLog.name,
       foods: selectedFoods,
-      totalCalories: selectedFoods.reduce((sum, f) => sum + f.calories, 0),
-      totalProtein: selectedFoods.reduce((sum, f) => sum + f.protein, 0),
-      totalCarbs: selectedFoods.reduce((sum, f) => sum + f.carbs, 0),
-      totalFat: selectedFoods.reduce((sum, f) => sum + f.fat, 0),
-      createdAt: new Date()
+      totalCalories: newTotalCalories,
+      totalProtein: newTotalProtein,
+      totalCarbs: newTotalCarbs,
+      totalFat: newTotalFat,
+      createdAt: existingLog?.createdAt || new Date()
+    }
+
+    // Calcular diferença para atualizar totais
+    let newMealLogs: MealLog[]
+    let caloriesDiff = newTotalCalories
+    let proteinDiff = newTotalProtein
+    let carbsDiff = newTotalCarbs
+    let fatDiff = newTotalFat
+
+    if (existingLog) {
+      // Substituir o log existente - subtrair os valores antigos
+      newMealLogs = dailyConsumption.mealLogs.map(log =>
+        log.mealName === selectedMealForLog.name ? mealLog : log
+      )
+      caloriesDiff = newTotalCalories - existingLog.totalCalories
+      proteinDiff = newTotalProtein - existingLog.totalProtein
+      carbsDiff = newTotalCarbs - existingLog.totalCarbs
+      fatDiff = newTotalFat - existingLog.totalFat
+    } else {
+      newMealLogs = [...dailyConsumption.mealLogs, mealLog]
     }
 
     const updatedConsumption: DailyConsumption = {
       ...dailyConsumption,
-      mealLogs: [...dailyConsumption.mealLogs, mealLog],
-      totalCalories: dailyConsumption.totalCalories + mealLog.totalCalories,
-      totalProtein: dailyConsumption.totalProtein + mealLog.totalProtein,
-      totalCarbs: dailyConsumption.totalCarbs + mealLog.totalCarbs,
-      totalFat: dailyConsumption.totalFat + mealLog.totalFat
+      mealLogs: newMealLogs,
+      totalCalories: Math.max(0, dailyConsumption.totalCalories + caloriesDiff),
+      totalProtein: Math.max(0, dailyConsumption.totalProtein + proteinDiff),
+      totalCarbs: Math.max(0, dailyConsumption.totalCarbs + carbsDiff),
+      totalFat: Math.max(0, dailyConsumption.totalFat + fatDiff)
     }
 
     saveConsumption(updatedConsumption)
@@ -874,15 +951,24 @@ export function DietView() {
       </div>
 
       {/* Modal de registro de refeição */}
-      {showMealLogModal && selectedMealForLog && (
+      {showMealLogModal && selectedMealForLog && (() => {
+        const existingLog = dailyConsumption?.mealLogs.find(log => log.mealName === selectedMealForLog.name)
+        const isEditing = !!existingLog
+        const isSkippedMeal = existingLog && existingLog.foods.length === 0
+
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
             {/* Header do modal */}
-            <div className="p-4 bg-gradient-to-r from-primary-600 to-accent-600 flex items-center justify-between">
+            <div className={`p-4 flex items-center justify-between ${
+              isEditing
+                ? 'bg-gradient-to-r from-amber-600 to-orange-600'
+                : 'bg-gradient-to-r from-primary-600 to-accent-600'
+            }`}>
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <ClipboardList className="w-5 h-5" />
-                  Registrar Refeição
+                  {isEditing ? 'Editar Registro' : 'Registrar Refeição'}
                 </h3>
                 <p className="text-sm text-primary-100">
                   {selectedMealForLog.name} - {formatDateDisplay(selectedDate)}
@@ -896,19 +982,43 @@ export function DietView() {
               </button>
             </div>
 
+            {/* Consumo anterior (se existir) */}
+            {isEditing && (
+              <div className={`px-4 py-3 ${isSkippedMeal ? 'bg-red-500/10 border-b border-red-500/30' : 'bg-amber-500/10 border-b border-amber-500/30'}`}>
+                <p className="text-sm text-gray-300 mb-1">
+                  {isSkippedMeal ? 'Registro anterior: Refeição pulada' : 'Registro anterior:'}
+                </p>
+                {!isSkippedMeal && existingLog && (
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-amber-400 font-medium">{existingLog.totalCalories} kcal</span>
+                    <span className="text-blue-400">P: {existingLog.totalProtein}g</span>
+                    <span className="text-yellow-400">C: {existingLog.totalCarbs}g</span>
+                    <span className="text-purple-400">G: {existingLog.totalFat}g</span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Modifique abaixo para atualizar o registro
+                </p>
+              </div>
+            )}
+
             {/* Conteúdo do modal */}
             <div className="p-4 max-h-[60vh] overflow-y-auto">
               {/* Botão Não Comi Nada */}
               <button
                 onClick={registerSkippedMeal}
-                className="w-full p-3 mb-4 rounded-lg border border-dashed border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400 transition-colors flex items-center justify-center gap-2"
+                className={`w-full p-3 mb-4 rounded-lg border border-dashed transition-colors flex items-center justify-center gap-2 ${
+                  isSkippedMeal
+                    ? 'border-red-500 bg-red-500/20 text-red-400'
+                    : 'border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400'
+                }`}
               >
                 <Ban className="w-5 h-5" />
-                Não comi nada nesta refeição
+                {isSkippedMeal ? 'Manter como não comido' : 'Não comi nada nesta refeição'}
               </button>
 
               <p className="text-gray-400 text-sm mb-4">
-                Ou selecione o que você consumiu:
+                {isEditing ? 'Atualize o que você consumiu:' : 'Ou selecione o que você consumiu:'}
               </p>
 
               {/* Lista de alimentos da dieta */}
@@ -1108,12 +1218,13 @@ export function DietView() {
                 className="flex-1 p-3 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <Check className="w-5 h-5" />
-                Registrar
+                {isEditing ? 'Atualizar' : 'Registrar'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Modal de troca de alimento via IA */}
       {showSwapModal && swapMealIndex !== null && swapFoodIndex !== null && (
