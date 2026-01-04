@@ -1,0 +1,6 @@
+export { BasicDataStep } from './BasicDataStep'
+export { BodyCompositionStep } from './BodyCompositionStep'
+export { GoalsStep } from './GoalsStep'
+export { DiagnosisStep } from './DiagnosisStep'
+export { PhotosStep } from './PhotosStep'
+export { SummaryStep } from './SummaryStep'
