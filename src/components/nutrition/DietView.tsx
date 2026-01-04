@@ -79,6 +79,15 @@ export function DietView() {
   const [isCalculating, setIsCalculating] = useState(false)
   const [selectedFoods, setSelectedFoods] = useState<ConsumedFood[]>([])
   const [showCustomInput, setShowCustomInput] = useState(false)
+  const [evolutionRefreshTrigger, setEvolutionRefreshTrigger] = useState(0)
+
+  // Estado para troca de alimento via IA
+  const [showSwapModal, setShowSwapModal] = useState(false)
+  const [swapFoodIndex, setSwapFoodIndex] = useState<number | null>(null)
+  const [swapMealIndex, setSwapMealIndex] = useState<number | null>(null)
+  const [swapRequest, setSwapRequest] = useState('')
+  const [isSwapping, setIsSwapping] = useState(false)
+  const [swapSuggestion, setSwapSuggestion] = useState<FoodItem | null>(null)
 
   // Carregar consumo do dia do localStorage
   useEffect(() => {
@@ -211,6 +220,8 @@ export function DietView() {
     setShowMealLogModal(false)
     setSelectedMealForLog(null)
     setSelectedFoods([])
+    // Atualizar gráfico de evolução
+    setEvolutionRefreshTrigger(prev => prev + 1)
   }
 
   // Verificar se uma refeição já foi registrada hoje
@@ -221,6 +232,65 @@ export function DietView() {
   // Calcular porcentagem consumida
   const getConsumptionPercentage = (consumed: number, goal: number) => {
     return Math.min((consumed / goal) * 100, 100)
+  }
+
+  // Abrir modal de troca de alimento
+  const openSwapModal = (mealIndex: number, foodIndex: number) => {
+    setSwapMealIndex(mealIndex)
+    setSwapFoodIndex(foodIndex)
+    setSwapRequest('')
+    setSwapSuggestion(null)
+    setShowSwapModal(true)
+  }
+
+  // Solicitar sugestão de troca via IA
+  const requestSwapSuggestion = async () => {
+    if (swapMealIndex === null || swapFoodIndex === null || !swapRequest.trim()) return
+
+    const meal = selectedDayData?.meals[swapMealIndex]
+    const food = meal?.foods[swapFoodIndex]
+    if (!meal || !food) return
+
+    setIsSwapping(true)
+    try {
+      const response = await fetch('/api/nutrition/swap-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentFood: {
+            name: food.name,
+            quantity: food.quantity,
+            calories: food.calories,
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat
+          },
+          userRequest: swapRequest,
+          mealName: meal.name,
+          dietStyle: nutritionProfile.foodPreferences?.dietStyle || 'tradicional',
+          goalType: dietGoal?.type || 'manutencao',
+          targetCalories: food.calories
+        })
+      })
+
+      const data = await response.json()
+      if (data.suggestion) {
+        setSwapSuggestion(data.suggestion)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar sugestão:', error)
+    } finally {
+      setIsSwapping(false)
+    }
+  }
+
+  // Aplicar troca de alimento (apenas visual, não persiste)
+  const applySwap = () => {
+    // Por enquanto apenas fecha o modal
+    // Em uma implementação completa, salvaria a alteração no banco
+    setShowSwapModal(false)
+    setSwapSuggestion(null)
+    setSwapRequest('')
   }
 
   if (!currentDiet) {
@@ -451,6 +521,7 @@ export function DietView() {
               isExpanded={expandedMeal === meal.id}
               onToggle={() => toggleMeal(meal.id)}
               onRegisterMeal={() => openMealLogModal(meal)}
+              onSwapFood={openSwapModal}
               isLogged={isMealLogged(meal.name)}
             />
           ))}
@@ -585,6 +656,7 @@ export function DietView() {
               proteinGoal={nutritionTargets.protein}
               carbsGoal={nutritionTargets.carbs}
               fatGoal={nutritionTargets.fat}
+              refreshTrigger={evolutionRefreshTrigger}
             />
           </div>
         )}
@@ -781,6 +853,112 @@ export function DietView() {
           </div>
         </div>
       )}
+
+      {/* Modal de troca de alimento via IA */}
+      {showSwapModal && swapMealIndex !== null && swapFoodIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden">
+            {/* Header do modal */}
+            <div className="p-4 bg-gradient-to-r from-accent-600 to-primary-600 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5" />
+                  Trocar Alimento
+                </h3>
+                <p className="text-sm text-primary-100">
+                  {selectedDayData?.meals[swapMealIndex]?.foods[swapFoodIndex]?.name}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSwapModal(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Conteúdo do modal */}
+            <div className="p-4">
+              <p className="text-gray-400 text-sm mb-4">
+                O que você gostaria de comer no lugar?
+              </p>
+
+              {/* Campo de texto para pedido */}
+              <div className="space-y-3 mb-4">
+                <input
+                  type="text"
+                  value={swapRequest}
+                  onChange={(e) => setSwapRequest(e.target.value)}
+                  placeholder="Ex: quero algo com frango, ou prefiro peixe..."
+                  className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 text-white placeholder-gray-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                  onKeyDown={(e) => e.key === 'Enter' && requestSwapSuggestion()}
+                />
+                <button
+                  onClick={requestSwapSuggestion}
+                  disabled={isSwapping || !swapRequest.trim()}
+                  className="w-full p-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  {isSwapping ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Buscando sugestão...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      Pedir sugestão à IA
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Sugestão da IA */}
+              {swapSuggestion && (
+                <div className="mt-4 p-4 bg-gradient-to-br from-primary-500/10 to-accent-500/10 rounded-lg border border-primary-500/30">
+                  <p className="text-xs text-gray-400 mb-2">Sugestão da IA:</p>
+                  <div className="space-y-2">
+                    <h4 className="text-lg font-bold text-white">{swapSuggestion.name}</h4>
+                    <p className="text-gray-300">{swapSuggestion.quantity}</p>
+                    <div className="flex gap-4 text-sm">
+                      <span className="text-primary-400">{swapSuggestion.calories} kcal</span>
+                      <span className="text-blue-400">P: {swapSuggestion.protein}g</span>
+                      <span className="text-yellow-400">C: {swapSuggestion.carbs}g</span>
+                      <span className="text-purple-400">G: {swapSuggestion.fat}g</span>
+                    </div>
+                    {(swapSuggestion as { explanation?: string }).explanation && (
+                      <p className="text-sm text-gray-400 mt-2 italic">
+                        {(swapSuggestion as { explanation?: string }).explanation}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer do modal */}
+            <div className="p-4 bg-gray-800/50 border-t border-gray-700 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSwapModal(false)
+                  setSwapSuggestion(null)
+                }}
+                className="flex-1 p-3 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              {swapSuggestion && (
+                <button
+                  onClick={applySwap}
+                  className="flex-1 p-3 rounded-lg bg-primary-500 hover:bg-primary-600 text-white font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Check className="w-5 h-5" />
+                  Salvar troca
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -814,10 +992,11 @@ interface MealCardProps {
   isExpanded: boolean
   onToggle: () => void
   onRegisterMeal: () => void
+  onSwapFood: (mealIndex: number, foodIndex: number) => void
   isLogged: boolean
 }
 
-function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, isLogged }: MealCardProps) {
+function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, onSwapFood, isLogged }: MealCardProps) {
   const [showSubstitutions, setShowSubstitutions] = useState<number | null>(null)
   const mealEmojis = ['☕', '🍎', '🍽️', '🥪', '🌙', '🌜']
   const mealColors = [
@@ -948,10 +1127,20 @@ function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, isLogged 
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
+                          onSwapFood(index, foodIndex)
+                        }}
+                        className="p-2 hover:bg-primary-500/20 rounded-lg transition-colors group"
+                        title="Trocar alimento via IA"
+                      >
+                        <Sparkles className="w-4 h-4 text-gray-400 group-hover:text-primary-400" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setShowSubstitutions(showSubstitutions === foodIndex ? null : foodIndex)
                         }}
                         className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                        title="Ver mais opções de substituição"
+                        title="Ver alternativas e substituições"
                       >
                         <ArrowRightLeft className="w-4 h-4 text-gray-400 hover:text-primary-400" />
                       </button>
