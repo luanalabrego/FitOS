@@ -19,6 +19,7 @@ interface EvolutionViewProps {
   proteinGoal: number
   carbsGoal: number
   fatGoal: number
+  refreshTrigger?: number // Incrementar para forçar atualização
 }
 
 // Obter todas as chaves de consumo do localStorage
@@ -68,14 +69,15 @@ const getMonthDates = (monthOffset: number = 0): string[] => {
   return dates
 }
 
-export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal }: EvolutionViewProps) {
+export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal, refreshTrigger = 0 }: EvolutionViewProps) {
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
   const [offset, setOffset] = useState(0)
   const [history, setHistory] = useState<DailyConsumption[]>([])
 
+  // Atualizar dados quando o trigger mudar
   useEffect(() => {
     setHistory(getConsumptionHistory())
-  }, [])
+  }, [refreshTrigger])
 
   const dates = viewMode === 'week' ? getWeekDates(offset) : getMonthDates(offset)
 

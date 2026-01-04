@@ -7,6 +7,15 @@ interface DietParams {
   calories: number
 }
 
+interface FoodAlternative {
+  name: string
+  quantity: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
 interface FoodItem {
   name: string
   quantity: string
@@ -14,6 +23,7 @@ interface FoodItem {
   protein: number
   carbs: number
   fat: number
+  alternatives?: FoodAlternative[]
 }
 
 interface MealItem {
@@ -158,9 +168,33 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Café da Manhã',
       time: '07:00',
       foods: [
-        { name: 'Ovos com bacon', quantity: '3 ovos + 50g bacon', calories: 380, protein: 25, carbs: 1, fat: 30 },
-        { name: 'Abacate', quantity: '100g', calories: 160, protein: 2, carbs: 2, fat: 15 },
-        { name: 'Café com óleo de coco', quantity: '200ml', calories: 90, protein: 0, carbs: 0, fat: 10 }
+        {
+          name: 'Ovos com bacon',
+          quantity: '3 ovos + 50g bacon',
+          calories: 380, protein: 25, carbs: 1, fat: 30,
+          alternatives: [
+            { name: 'Omelete com queijo', quantity: '3 ovos + 40g queijo', calories: 370, protein: 26, carbs: 2, fat: 28 },
+            { name: 'Ovos mexidos com manteiga', quantity: '3 ovos + 20g manteiga', calories: 360, protein: 24, carbs: 1, fat: 29 }
+          ]
+        },
+        {
+          name: 'Abacate',
+          quantity: '100g',
+          calories: 160, protein: 2, carbs: 2, fat: 15,
+          alternatives: [
+            { name: 'Creme de abacate', quantity: '100g', calories: 165, protein: 2, carbs: 3, fat: 15 },
+            { name: 'Pasta de amendoim', quantity: '30g', calories: 180, protein: 7, carbs: 4, fat: 15 }
+          ]
+        },
+        {
+          name: 'Café com óleo de coco',
+          quantity: '200ml',
+          calories: 90, protein: 0, carbs: 0, fat: 10,
+          alternatives: [
+            { name: 'Café com manteiga', quantity: '200ml', calories: 100, protein: 0, carbs: 0, fat: 11 },
+            { name: 'Chá sem açúcar', quantity: '200ml', calories: 5, protein: 0, carbs: 0, fat: 0 }
+          ]
+        }
       ],
       totalCalories: 630, totalProtein: 27, totalCarbs: 3, totalFat: 55
     },
@@ -168,10 +202,42 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Almoço',
       time: '12:30',
       foods: [
-        { name: 'Picanha grelhada', quantity: '200g', calories: 400, protein: 40, carbs: 0, fat: 26 },
-        { name: 'Salada de folhas', quantity: '100g', calories: 15, protein: 1, carbs: 2, fat: 0 },
-        { name: 'Azeite de oliva', quantity: '20ml', calories: 180, protein: 0, carbs: 0, fat: 20 },
-        { name: 'Queijo coalho', quantity: '50g', calories: 150, protein: 12, carbs: 1, fat: 11 }
+        {
+          name: 'Picanha grelhada',
+          quantity: '200g',
+          calories: 400, protein: 40, carbs: 0, fat: 26,
+          alternatives: [
+            { name: 'Costela assada', quantity: '200g', calories: 420, protein: 35, carbs: 0, fat: 30 },
+            { name: 'Fraldinha grelhada', quantity: '200g', calories: 380, protein: 42, carbs: 0, fat: 22 }
+          ]
+        },
+        {
+          name: 'Salada de folhas',
+          quantity: '100g',
+          calories: 15, protein: 1, carbs: 2, fat: 0,
+          alternatives: [
+            { name: 'Couve refogada', quantity: '100g', calories: 30, protein: 2, carbs: 3, fat: 1 },
+            { name: 'Espinafre refogado', quantity: '100g', calories: 25, protein: 3, carbs: 2, fat: 1 }
+          ]
+        },
+        {
+          name: 'Azeite de oliva',
+          quantity: '20ml',
+          calories: 180, protein: 0, carbs: 0, fat: 20,
+          alternatives: [
+            { name: 'Manteiga', quantity: '20g', calories: 150, protein: 0, carbs: 0, fat: 17 },
+            { name: 'Óleo de coco', quantity: '20ml', calories: 180, protein: 0, carbs: 0, fat: 20 }
+          ]
+        },
+        {
+          name: 'Queijo coalho',
+          quantity: '50g',
+          calories: 150, protein: 12, carbs: 1, fat: 11,
+          alternatives: [
+            { name: 'Queijo minas', quantity: '50g', calories: 130, protein: 10, carbs: 1, fat: 10 },
+            { name: 'Queijo prato', quantity: '50g', calories: 170, protein: 13, carbs: 0, fat: 13 }
+          ]
+        }
       ],
       totalCalories: 745, totalProtein: 53, totalCarbs: 3, totalFat: 57
     },
@@ -179,8 +245,24 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Lanche da Tarde',
       time: '16:00',
       foods: [
-        { name: 'Castanhas mistas', quantity: '40g', calories: 260, protein: 6, carbs: 4, fat: 24 },
-        { name: 'Queijo cheddar', quantity: '30g', calories: 120, protein: 8, carbs: 0, fat: 10 }
+        {
+          name: 'Castanhas mistas',
+          quantity: '40g',
+          calories: 260, protein: 6, carbs: 4, fat: 24,
+          alternatives: [
+            { name: 'Amendoim torrado', quantity: '40g', calories: 240, protein: 10, carbs: 5, fat: 20 },
+            { name: 'Nozes', quantity: '40g', calories: 270, protein: 6, carbs: 3, fat: 26 }
+          ]
+        },
+        {
+          name: 'Queijo cheddar',
+          quantity: '30g',
+          calories: 120, protein: 8, carbs: 0, fat: 10,
+          alternatives: [
+            { name: 'Cream cheese', quantity: '30g', calories: 100, protein: 2, carbs: 1, fat: 10 },
+            { name: 'Queijo brie', quantity: '30g', calories: 115, protein: 6, carbs: 0, fat: 10 }
+          ]
+        }
       ],
       totalCalories: 380, totalProtein: 14, totalCarbs: 4, totalFat: 34
     },
@@ -188,9 +270,33 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Jantar',
       time: '19:30',
       foods: [
-        { name: 'Salmão grelhado', quantity: '180g', calories: 350, protein: 38, carbs: 0, fat: 22 },
-        { name: 'Brócolis com manteiga', quantity: '150g', calories: 80, protein: 4, carbs: 6, fat: 5 },
-        { name: 'Cream cheese', quantity: '30g', calories: 100, protein: 2, carbs: 1, fat: 10 }
+        {
+          name: 'Salmão grelhado',
+          quantity: '180g',
+          calories: 350, protein: 38, carbs: 0, fat: 22,
+          alternatives: [
+            { name: 'Atum grelhado', quantity: '180g', calories: 280, protein: 45, carbs: 0, fat: 10 },
+            { name: 'Tilápia com manteiga', quantity: '180g', calories: 300, protein: 40, carbs: 0, fat: 15 }
+          ]
+        },
+        {
+          name: 'Brócolis com manteiga',
+          quantity: '150g',
+          calories: 80, protein: 4, carbs: 6, fat: 5,
+          alternatives: [
+            { name: 'Couve-flor gratinada', quantity: '150g', calories: 100, protein: 5, carbs: 5, fat: 7 },
+            { name: 'Aspargos com azeite', quantity: '150g', calories: 70, protein: 4, carbs: 5, fat: 4 }
+          ]
+        },
+        {
+          name: 'Cream cheese',
+          quantity: '30g',
+          calories: 100, protein: 2, carbs: 1, fat: 10,
+          alternatives: [
+            { name: 'Maionese caseira', quantity: '30g', calories: 110, protein: 0, carbs: 0, fat: 12 },
+            { name: 'Molho de queijo', quantity: '30g', calories: 90, protein: 2, carbs: 1, fat: 8 }
+          ]
+        }
       ],
       totalCalories: 530, totalProtein: 44, totalCarbs: 7, totalFat: 37
     }
@@ -202,9 +308,33 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Café da Manhã',
       time: '07:00',
       foods: [
-        { name: 'Omelete de queijo', quantity: '3 ovos + 30g queijo', calories: 320, protein: 22, carbs: 2, fat: 25 },
-        { name: 'Tomate', quantity: '100g', calories: 18, protein: 1, carbs: 4, fat: 0 },
-        { name: 'Café sem açúcar', quantity: '200ml', calories: 5, protein: 0, carbs: 1, fat: 0 }
+        {
+          name: 'Omelete de queijo',
+          quantity: '3 ovos + 30g queijo',
+          calories: 320, protein: 22, carbs: 2, fat: 25,
+          alternatives: [
+            { name: 'Ovos mexidos com presunto', quantity: '3 ovos + 40g presunto', calories: 300, protein: 24, carbs: 1, fat: 22 },
+            { name: 'Tapioca com queijo', quantity: '30g + 30g queijo', calories: 250, protein: 10, carbs: 25, fat: 12 }
+          ]
+        },
+        {
+          name: 'Tomate',
+          quantity: '100g',
+          calories: 18, protein: 1, carbs: 4, fat: 0,
+          alternatives: [
+            { name: 'Pepino', quantity: '100g', calories: 15, protein: 1, carbs: 3, fat: 0 },
+            { name: 'Cenoura ralada', quantity: '80g', calories: 35, protein: 1, carbs: 8, fat: 0 }
+          ]
+        },
+        {
+          name: 'Café sem açúcar',
+          quantity: '200ml',
+          calories: 5, protein: 0, carbs: 1, fat: 0,
+          alternatives: [
+            { name: 'Chá verde', quantity: '200ml', calories: 2, protein: 0, carbs: 0, fat: 0 },
+            { name: 'Café com leite', quantity: '200ml', calories: 60, protein: 3, carbs: 5, fat: 3 }
+          ]
+        }
       ],
       totalCalories: 343, totalProtein: 23, totalCarbs: 7, totalFat: 25
     },
@@ -212,10 +342,42 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Almoço',
       time: '12:30',
       foods: [
-        { name: 'Frango grelhado', quantity: '180g', calories: 280, protein: 45, carbs: 0, fat: 10 },
-        { name: 'Couve-flor refogada', quantity: '150g', calories: 50, protein: 3, carbs: 8, fat: 2 },
-        { name: 'Salada verde', quantity: '100g', calories: 20, protein: 2, carbs: 3, fat: 0 },
-        { name: 'Azeite', quantity: '15ml', calories: 135, protein: 0, carbs: 0, fat: 15 }
+        {
+          name: 'Frango grelhado',
+          quantity: '180g',
+          calories: 280, protein: 45, carbs: 0, fat: 10,
+          alternatives: [
+            { name: 'Peito de peru', quantity: '180g', calories: 200, protein: 40, carbs: 0, fat: 4 },
+            { name: 'Carne moída magra', quantity: '180g', calories: 320, protein: 40, carbs: 0, fat: 18 }
+          ]
+        },
+        {
+          name: 'Couve-flor refogada',
+          quantity: '150g',
+          calories: 50, protein: 3, carbs: 8, fat: 2,
+          alternatives: [
+            { name: 'Brócolis no vapor', quantity: '150g', calories: 50, protein: 4, carbs: 8, fat: 1 },
+            { name: 'Abobrinha refogada', quantity: '150g', calories: 40, protein: 2, carbs: 6, fat: 2 }
+          ]
+        },
+        {
+          name: 'Salada verde',
+          quantity: '100g',
+          calories: 20, protein: 2, carbs: 3, fat: 0,
+          alternatives: [
+            { name: 'Mix de folhas', quantity: '100g', calories: 18, protein: 2, carbs: 2, fat: 0 },
+            { name: 'Rúcula com tomate', quantity: '100g', calories: 25, protein: 2, carbs: 4, fat: 0 }
+          ]
+        },
+        {
+          name: 'Azeite',
+          quantity: '15ml',
+          calories: 135, protein: 0, carbs: 0, fat: 15,
+          alternatives: [
+            { name: 'Óleo de linhaça', quantity: '15ml', calories: 130, protein: 0, carbs: 0, fat: 14 },
+            { name: 'Manteiga ghee', quantity: '15g', calories: 130, protein: 0, carbs: 0, fat: 15 }
+          ]
+        }
       ],
       totalCalories: 485, totalProtein: 50, totalCarbs: 11, totalFat: 27
     },
@@ -223,8 +385,24 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Lanche da Tarde',
       time: '16:00',
       foods: [
-        { name: 'Iogurte grego', quantity: '150g', calories: 130, protein: 15, carbs: 6, fat: 5 },
-        { name: 'Amendoim', quantity: '20g', calories: 120, protein: 5, carbs: 3, fat: 10 }
+        {
+          name: 'Iogurte grego',
+          quantity: '150g',
+          calories: 130, protein: 15, carbs: 6, fat: 5,
+          alternatives: [
+            { name: 'Iogurte natural', quantity: '150g', calories: 90, protein: 6, carbs: 8, fat: 4 },
+            { name: 'Queijo cottage', quantity: '100g', calories: 100, protein: 12, carbs: 3, fat: 4 }
+          ]
+        },
+        {
+          name: 'Amendoim',
+          quantity: '20g',
+          calories: 120, protein: 5, carbs: 3, fat: 10,
+          alternatives: [
+            { name: 'Castanha de caju', quantity: '20g', calories: 115, protein: 4, carbs: 6, fat: 9 },
+            { name: 'Amêndoas', quantity: '20g', calories: 120, protein: 4, carbs: 4, fat: 10 }
+          ]
+        }
       ],
       totalCalories: 250, totalProtein: 20, totalCarbs: 9, totalFat: 15
     },
@@ -232,9 +410,33 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Jantar',
       time: '19:30',
       foods: [
-        { name: 'Peixe grelhado', quantity: '180g', calories: 220, protein: 40, carbs: 0, fat: 6 },
-        { name: 'Abobrinha grelhada', quantity: '150g', calories: 30, protein: 2, carbs: 5, fat: 1 },
-        { name: 'Aspargos', quantity: '100g', calories: 20, protein: 2, carbs: 4, fat: 0 }
+        {
+          name: 'Peixe grelhado',
+          quantity: '180g',
+          calories: 220, protein: 40, carbs: 0, fat: 6,
+          alternatives: [
+            { name: 'Tilápia assada', quantity: '180g', calories: 180, protein: 38, carbs: 0, fat: 3 },
+            { name: 'Sardinha grelhada', quantity: '150g', calories: 200, protein: 35, carbs: 0, fat: 7 }
+          ]
+        },
+        {
+          name: 'Abobrinha grelhada',
+          quantity: '150g',
+          calories: 30, protein: 2, carbs: 5, fat: 1,
+          alternatives: [
+            { name: 'Berinjela grelhada', quantity: '150g', calories: 35, protein: 2, carbs: 6, fat: 1 },
+            { name: 'Chuchu refogado', quantity: '150g', calories: 30, protein: 1, carbs: 6, fat: 1 }
+          ]
+        },
+        {
+          name: 'Aspargos',
+          quantity: '100g',
+          calories: 20, protein: 2, carbs: 4, fat: 0,
+          alternatives: [
+            { name: 'Vagem cozida', quantity: '100g', calories: 30, protein: 2, carbs: 6, fat: 0 },
+            { name: 'Ervilha torta', quantity: '100g', calories: 40, protein: 3, carbs: 7, fat: 0 }
+          ]
+        }
       ],
       totalCalories: 270, totalProtein: 44, totalCarbs: 9, totalFat: 7
     }
@@ -246,10 +448,42 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Café da Manhã',
       time: '07:00',
       foods: [
-        { name: 'Pão integral', quantity: '2 fatias', calories: 140, protein: 6, carbs: 24, fat: 2 },
-        { name: 'Ovos mexidos', quantity: '2 unidades', calories: 140, protein: 12, carbs: 1, fat: 10 },
-        { name: 'Queijo branco', quantity: '30g', calories: 70, protein: 6, carbs: 1, fat: 5 },
-        { name: 'Café com leite', quantity: '200ml', calories: 80, protein: 4, carbs: 8, fat: 4 }
+        {
+          name: 'Pão integral',
+          quantity: '2 fatias',
+          calories: 140, protein: 6, carbs: 24, fat: 2,
+          alternatives: [
+            { name: 'Pão francês', quantity: '1 unidade', calories: 150, protein: 5, carbs: 28, fat: 2 },
+            { name: 'Tapioca', quantity: '2 unidades', calories: 130, protein: 1, carbs: 30, fat: 0 }
+          ]
+        },
+        {
+          name: 'Ovos mexidos',
+          quantity: '2 unidades',
+          calories: 140, protein: 12, carbs: 1, fat: 10,
+          alternatives: [
+            { name: 'Ovo cozido', quantity: '2 unidades', calories: 130, protein: 12, carbs: 1, fat: 9 },
+            { name: 'Omelete simples', quantity: '2 ovos', calories: 150, protein: 12, carbs: 1, fat: 11 }
+          ]
+        },
+        {
+          name: 'Queijo branco',
+          quantity: '30g',
+          calories: 70, protein: 6, carbs: 1, fat: 5,
+          alternatives: [
+            { name: 'Requeijão light', quantity: '30g', calories: 45, protein: 3, carbs: 2, fat: 3 },
+            { name: 'Queijo minas', quantity: '30g', calories: 80, protein: 6, carbs: 1, fat: 6 }
+          ]
+        },
+        {
+          name: 'Café com leite',
+          quantity: '200ml',
+          calories: 80, protein: 4, carbs: 8, fat: 4,
+          alternatives: [
+            { name: 'Café preto', quantity: '200ml', calories: 5, protein: 0, carbs: 1, fat: 0 },
+            { name: 'Leite com achocolatado', quantity: '200ml', calories: 150, protein: 6, carbs: 22, fat: 4 }
+          ]
+        }
       ],
       totalCalories: 430, totalProtein: 28, totalCarbs: 34, totalFat: 21
     },
@@ -257,11 +491,51 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Almoço',
       time: '12:30',
       foods: [
-        { name: 'Frango grelhado', quantity: '150g', calories: 250, protein: 40, carbs: 0, fat: 8 },
-        { name: 'Arroz integral', quantity: '100g cozido', calories: 130, protein: 3, carbs: 28, fat: 1 },
-        { name: 'Feijão', quantity: '80g cozido', calories: 100, protein: 6, carbs: 18, fat: 0 },
-        { name: 'Salada verde', quantity: '100g', calories: 20, protein: 2, carbs: 4, fat: 0 },
-        { name: 'Azeite', quantity: '10ml', calories: 90, protein: 0, carbs: 0, fat: 10 }
+        {
+          name: 'Frango grelhado',
+          quantity: '150g',
+          calories: 250, protein: 40, carbs: 0, fat: 8,
+          alternatives: [
+            { name: 'Carne moída', quantity: '150g', calories: 280, protein: 35, carbs: 0, fat: 15 },
+            { name: 'Bife de patinho', quantity: '150g', calories: 240, protein: 40, carbs: 0, fat: 8 }
+          ]
+        },
+        {
+          name: 'Arroz integral',
+          quantity: '100g cozido',
+          calories: 130, protein: 3, carbs: 28, fat: 1,
+          alternatives: [
+            { name: 'Arroz branco', quantity: '100g cozido', calories: 130, protein: 2, carbs: 28, fat: 0 },
+            { name: 'Macarrão integral', quantity: '100g cozido', calories: 140, protein: 5, carbs: 28, fat: 1 }
+          ]
+        },
+        {
+          name: 'Feijão',
+          quantity: '80g cozido',
+          calories: 100, protein: 6, carbs: 18, fat: 0,
+          alternatives: [
+            { name: 'Lentilha', quantity: '80g cozida', calories: 90, protein: 7, carbs: 15, fat: 0 },
+            { name: 'Grão de bico', quantity: '80g cozido', calories: 130, protein: 7, carbs: 20, fat: 2 }
+          ]
+        },
+        {
+          name: 'Salada verde',
+          quantity: '100g',
+          calories: 20, protein: 2, carbs: 4, fat: 0,
+          alternatives: [
+            { name: 'Salada de tomate', quantity: '100g', calories: 20, protein: 1, carbs: 4, fat: 0 },
+            { name: 'Cenoura ralada', quantity: '100g', calories: 40, protein: 1, carbs: 9, fat: 0 }
+          ]
+        },
+        {
+          name: 'Azeite',
+          quantity: '10ml',
+          calories: 90, protein: 0, carbs: 0, fat: 10,
+          alternatives: [
+            { name: 'Óleo de girassol', quantity: '10ml', calories: 90, protein: 0, carbs: 0, fat: 10 },
+            { name: 'Vinagrete', quantity: '30g', calories: 40, protein: 0, carbs: 4, fat: 3 }
+          ]
+        }
       ],
       totalCalories: 590, totalProtein: 51, totalCarbs: 50, totalFat: 19
     },
@@ -269,9 +543,33 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Lanche da Tarde',
       time: '16:00',
       foods: [
-        { name: 'Iogurte natural', quantity: '170g', calories: 100, protein: 10, carbs: 6, fat: 5 },
-        { name: 'Banana', quantity: '1 média', calories: 105, protein: 1, carbs: 27, fat: 0 },
-        { name: 'Aveia', quantity: '30g', calories: 115, protein: 4, carbs: 20, fat: 2 }
+        {
+          name: 'Iogurte natural',
+          quantity: '170g',
+          calories: 100, protein: 10, carbs: 6, fat: 5,
+          alternatives: [
+            { name: 'Iogurte de frutas', quantity: '170g', calories: 150, protein: 5, carbs: 25, fat: 3 },
+            { name: 'Vitamina de banana', quantity: '200ml', calories: 180, protein: 6, carbs: 30, fat: 4 }
+          ]
+        },
+        {
+          name: 'Banana',
+          quantity: '1 média',
+          calories: 105, protein: 1, carbs: 27, fat: 0,
+          alternatives: [
+            { name: 'Maçã', quantity: '1 média', calories: 80, protein: 0, carbs: 20, fat: 0 },
+            { name: 'Mamão', quantity: '150g', calories: 65, protein: 1, carbs: 16, fat: 0 }
+          ]
+        },
+        {
+          name: 'Aveia',
+          quantity: '30g',
+          calories: 115, protein: 4, carbs: 20, fat: 2,
+          alternatives: [
+            { name: 'Granola', quantity: '30g', calories: 130, protein: 3, carbs: 22, fat: 4 },
+            { name: 'Chia', quantity: '15g', calories: 70, protein: 2, carbs: 6, fat: 5 }
+          ]
+        }
       ],
       totalCalories: 320, totalProtein: 15, totalCarbs: 53, totalFat: 7
     },
@@ -279,9 +577,33 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
       name: 'Jantar',
       time: '19:30',
       foods: [
-        { name: 'Peixe grelhado', quantity: '150g', calories: 180, protein: 35, carbs: 0, fat: 4 },
-        { name: 'Batata doce', quantity: '150g', calories: 130, protein: 2, carbs: 30, fat: 0 },
-        { name: 'Legumes refogados', quantity: '100g', calories: 50, protein: 2, carbs: 10, fat: 1 }
+        {
+          name: 'Peixe grelhado',
+          quantity: '150g',
+          calories: 180, protein: 35, carbs: 0, fat: 4,
+          alternatives: [
+            { name: 'Frango desfiado', quantity: '150g', calories: 200, protein: 35, carbs: 0, fat: 6 },
+            { name: 'Atum em conserva', quantity: '120g', calories: 150, protein: 30, carbs: 0, fat: 3 }
+          ]
+        },
+        {
+          name: 'Batata doce',
+          quantity: '150g',
+          calories: 130, protein: 2, carbs: 30, fat: 0,
+          alternatives: [
+            { name: 'Mandioca cozida', quantity: '150g', calories: 160, protein: 1, carbs: 38, fat: 0 },
+            { name: 'Inhame', quantity: '150g', calories: 120, protein: 2, carbs: 28, fat: 0 }
+          ]
+        },
+        {
+          name: 'Legumes refogados',
+          quantity: '100g',
+          calories: 50, protein: 2, carbs: 10, fat: 1,
+          alternatives: [
+            { name: 'Chuchu com cenoura', quantity: '100g', calories: 40, protein: 1, carbs: 8, fat: 1 },
+            { name: 'Abobrinha com tomate', quantity: '100g', calories: 35, protein: 2, carbs: 6, fat: 1 }
+          ]
+        }
       ],
       totalCalories: 360, totalProtein: 39, totalCarbs: 40, totalFat: 5
     }
