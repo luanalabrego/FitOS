@@ -1,0 +1,291 @@
+'use client'
+
+import { useNutrition } from '@/contexts/NutritionContext'
+import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { INTENSITY_OPTIONS } from '@/types/nutrition'
+import { Target, TrendingDown, TrendingUp, Scale, Dumbbell, ArrowRight, Flame, Zap, Rocket } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
+const GOAL_OPTIONS = [
+  {
+    type: 'perda_peso' as const,
+    label: 'Perder Peso',
+    description: 'Emagrecer e perder gordura',
+    icon: <TrendingDown className="w-6 h-6" />,
+    emoji: '🔥',
+    color: 'from-red-500 to-orange-500'
+  },
+  {
+    type: 'ganho_massa' as const,
+    label: 'Ganhar Massa',
+    description: 'Aumentar músculos',
+    icon: <Dumbbell className="w-6 h-6" />,
+    emoji: '💪',
+    color: 'from-blue-500 to-purple-500'
+  },
+  {
+    type: 'manutencao' as const,
+    label: 'Manter Peso',
+    description: 'Manter o peso atual',
+    icon: <Scale className="w-6 h-6" />,
+    emoji: '⚖️',
+    color: 'from-green-500 to-teal-500'
+  },
+  {
+    type: 'recomposicao' as const,
+    label: 'Recomposição',
+    description: 'Perder gordura e ganhar músculo',
+    icon: <Target className="w-6 h-6" />,
+    emoji: '🎯',
+    color: 'from-purple-500 to-pink-500'
+  }
+]
+
+const INTENSITY_ICONS = {
+  leve: <Flame className="w-5 h-5" />,
+  moderado: <Zap className="w-5 h-5" />,
+  agressivo: <Rocket className="w-5 h-5" />
+}
+
+export function GoalStep() {
+  const { state, dispatch, nextStep, userProfile, calculateTargets } = useNutrition()
+  const { dietGoal } = state.nutritionProfile
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Calcular metas quando os dados mudam
+  useEffect(() => {
+    if (dietGoal?.currentWeight && dietGoal?.targetWeight && dietGoal?.type) {
+      calculateTargets()
+    }
+  }, [dietGoal?.currentWeight, dietGoal?.targetWeight, dietGoal?.type, dietGoal?.intensity])
+
+  const handleGoalSelect = (type: typeof GOAL_OPTIONS[number]['type']) => {
+    dispatch({ type: 'UPDATE_DIET_GOAL', payload: { type } })
+  }
+
+  const handleIntensitySelect = (intensity: 'leve' | 'moderado' | 'agressivo') => {
+    dispatch({ type: 'UPDATE_DIET_GOAL', payload: { intensity } })
+  }
+
+  const handleWeightChange = (field: 'currentWeight' | 'targetWeight', value: string) => {
+    const numValue = parseFloat(value) || 0
+    dispatch({ type: 'UPDATE_DIET_GOAL', payload: { [field]: numValue } })
+    setErrors(prev => ({ ...prev, [field]: '' }))
+  }
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {}
+
+    if (!dietGoal?.currentWeight || dietGoal.currentWeight < 30) {
+      newErrors.currentWeight = 'Informe seu peso atual'
+    }
+    if (!dietGoal?.targetWeight || dietGoal.targetWeight < 30) {
+      newErrors.targetWeight = 'Informe seu peso objetivo'
+    }
+    if (!dietGoal?.type) {
+      newErrors.type = 'Selecione um objetivo'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleNext = () => {
+    if (validate()) {
+      nextStep()
+    }
+  }
+
+  const weightDiff = (dietGoal?.currentWeight || 0) - (dietGoal?.targetWeight || 0)
+  const isLosing = weightDiff > 0
+  const isGaining = weightDiff < 0
+  const showIntensity = dietGoal?.type && dietGoal.type !== 'manutencao'
+
+  return (
+    <div className="space-y-6">
+      {/* Card de Objetivo */}
+      <Card>
+        <CardHeader
+          title="Qual é seu objetivo?"
+          subtitle="Escolha o que mais combina com você"
+          icon={<Target className="w-6 h-6 text-primary-400" />}
+        />
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            {GOAL_OPTIONS.map((goal) => (
+              <button
+                key={goal.type}
+                onClick={() => handleGoalSelect(goal.type)}
+                className={`
+                  relative p-4 rounded-xl border-2 transition-all duration-200
+                  ${dietGoal?.type === goal.type
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'
+                  }
+                `}
+              >
+                {dietGoal?.type === goal.type && (
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                )}
+                <div className={`
+                  w-12 h-12 rounded-xl bg-gradient-to-br ${goal.color}
+                  flex items-center justify-center text-white mb-3
+                `}>
+                  <span className="text-2xl">{goal.emoji}</span>
+                </div>
+                <h3 className="font-semibold text-white">{goal.label}</h3>
+                <p className="text-sm text-gray-400 mt-1">{goal.description}</p>
+              </button>
+            ))}
+          </div>
+          {errors.type && (
+            <p className="text-red-500 text-sm mt-2">{errors.type}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Card de Pesos */}
+      <Card>
+        <CardHeader
+          title="Seus números"
+          subtitle="De onde você parte e onde quer chegar"
+          icon={<Scale className="w-6 h-6 text-accent-400" />}
+        />
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Peso Atual"
+              type="number"
+              value={dietGoal?.currentWeight || ''}
+              onChange={(e) => handleWeightChange('currentWeight', e.target.value)}
+              suffix="kg"
+              placeholder="Ex: 80"
+              error={errors.currentWeight}
+              className="text-center text-lg font-bold"
+            />
+            <Input
+              label="Peso Objetivo"
+              type="number"
+              value={dietGoal?.targetWeight || ''}
+              onChange={(e) => handleWeightChange('targetWeight', e.target.value)}
+              suffix="kg"
+              placeholder="Ex: 70"
+              error={errors.targetWeight}
+              className="text-center text-lg font-bold"
+            />
+          </div>
+
+          {/* Indicador visual de diferença */}
+          {dietGoal?.currentWeight && dietGoal?.targetWeight && Math.abs(weightDiff) > 0 && (
+            <div className={`
+              mt-4 p-4 rounded-xl
+              ${isLosing ? 'bg-red-500/10 border border-red-500/30' : 'bg-blue-500/10 border border-blue-500/30'}
+            `}>
+              <div className="flex items-center justify-center gap-3">
+                {isLosing ? (
+                  <TrendingDown className="w-6 h-6 text-red-400" />
+                ) : (
+                  <TrendingUp className="w-6 h-6 text-blue-400" />
+                )}
+                <span className={`text-lg font-bold ${isLosing ? 'text-red-400' : 'text-blue-400'}`}>
+                  {isLosing ? 'Perder' : 'Ganhar'} {Math.abs(weightDiff).toFixed(1)} kg
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Card de Intensidade */}
+      {showIntensity && (
+        <Card>
+          <CardHeader
+            title="Intensidade"
+            subtitle="Quão rápido você quer ver resultados?"
+            icon={<Zap className="w-6 h-6 text-yellow-400" />}
+          />
+          <CardContent>
+            <div className="space-y-3">
+              {(Object.entries(INTENSITY_OPTIONS) as [keyof typeof INTENSITY_OPTIONS, typeof INTENSITY_OPTIONS[keyof typeof INTENSITY_OPTIONS]][]).map(([key, option]) => (
+                <button
+                  key={key}
+                  onClick={() => handleIntensitySelect(key)}
+                  className={`
+                    w-full p-4 rounded-xl border-2 transition-all
+                    flex items-center justify-between
+                    ${dietGoal?.intensity === key
+                      ? 'border-primary-500 bg-primary-500/10'
+                      : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`
+                      w-10 h-10 rounded-lg flex items-center justify-center
+                      ${key === 'leve' ? 'bg-green-500/20 text-green-400'
+                        : key === 'moderado' ? 'bg-yellow-500/20 text-yellow-400'
+                        : 'bg-red-500/20 text-red-400'
+                      }
+                    `}>
+                      {INTENSITY_ICONS[key]}
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-semibold text-white">{option.label}</h4>
+                      <p className="text-sm text-gray-400">{option.description}</p>
+                    </div>
+                  </div>
+                  {dietGoal?.intensity === key && (
+                    <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Preview de Projeção */}
+      {state.nutritionProfile.weightProjection && (
+        <Card className="border-primary-500/30 bg-gradient-to-br from-primary-500/5 to-accent-500/5">
+          <CardContent className="py-6">
+            <div className="text-center">
+              <p className="text-gray-400 mb-2">Com base nas suas escolhas:</p>
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="px-4 py-2 bg-primary-500/20 rounded-full">
+                  <span className="text-primary-400 font-bold">
+                    {Math.abs(state.nutritionProfile.weightProjection.weeklyChange).toFixed(2)} kg/semana
+                  </span>
+                </div>
+                <div className="px-4 py-2 bg-accent-500/20 rounded-full">
+                  <span className="text-accent-400 font-bold">
+                    ~{Math.ceil(state.nutritionProfile.weightProjection.weeksToGoal)} semanas
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-3">
+                Meta prevista para {state.nutritionProfile.weightProjection.estimatedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Botão de próximo */}
+      <Button
+        onClick={handleNext}
+        variant="primary"
+        size="lg"
+        fullWidth
+        rightIcon={<ArrowRight className="w-5 h-5" />}
+      >
+        Continuar
+      </Button>
+    </div>
+  )
+}

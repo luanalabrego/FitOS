@@ -35,6 +35,7 @@ export function Card({ children, className = '', padding = 'md' }: CardProps) {
 interface CardHeaderProps {
   title: string
   description?: string
+  subtitle?: string
   icon?: ReactNode
   action?: ReactNode
   className?: string
@@ -43,10 +44,12 @@ interface CardHeaderProps {
 export function CardHeader({
   title,
   description,
+  subtitle,
   icon,
   action,
   className = '',
 }: CardHeaderProps) {
+  const subtitleText = subtitle || description
   return (
     <div className={`flex items-start justify-between ${className}`}>
       <div className="flex items-start gap-3">
@@ -57,8 +60,8 @@ export function CardHeader({
         )}
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>
-          {description && (
-            <p className="text-sm text-gray-400 mt-0.5">{description}</p>
+          {subtitleText && (
+            <p className="text-sm text-gray-400 mt-0.5">{subtitleText}</p>
           )}
         </div>
       </div>

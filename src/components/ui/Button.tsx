@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, ButtonHTMLAttributes } from 'react'
+import { forwardRef, ButtonHTMLAttributes, ReactNode } from 'react'
 import { LucideIcon } from 'lucide-react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -8,6 +8,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg'
   icon?: LucideIcon
   iconPosition?: 'left' | 'right'
+  leftIcon?: ReactNode
+  rightIcon?: ReactNode
   loading?: boolean
   fullWidth?: boolean
 }
@@ -19,6 +21,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = 'md',
       icon: Icon,
       iconPosition = 'left',
+      leftIcon,
+      rightIcon,
       loading = false,
       fullWidth = false,
       children,
@@ -113,6 +117,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           </svg>
         ) : (
           <>
+            {leftIcon && leftIcon}
             {Icon && iconPosition === 'left' && (
               <Icon className={iconSizes[size]} />
             )}
@@ -120,6 +125,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             {Icon && iconPosition === 'right' && (
               <Icon className={iconSizes[size]} />
             )}
+            {rightIcon && rightIcon}
           </>
         )}
       </button>
