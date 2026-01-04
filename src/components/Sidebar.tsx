@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -95,6 +96,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter()
   const user = getCurrentUser()
   const isLoggedIn = user && !user.isAnonymous
+  const [mounted, setMounted] = useState(false)
+
+  // Montar no cliente
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Fechar sidebar com ESC
   useEffect(() => {
@@ -133,18 +140,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     router.push(href)
   }
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
-  return (
+  const sidebarContent = (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-fade-in"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] animate-fade-in"
         onClick={onClose}
       />
 
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-gray-900 border-r border-gray-800 z-[100] animate-slide-in-left overflow-y-auto">
+      <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-gray-900 border-r border-gray-800 z-[9999] animate-slide-in-left overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <Logo size="sm" />
@@ -290,4 +297,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
     </>
   )
+
+  // Usar createPortal para renderizar fora do header
+  return createPortal(sidebarContent, document.body)
 }
