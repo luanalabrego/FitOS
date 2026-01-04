@@ -20,7 +20,8 @@ import {
   Refrigerator,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  CalendarDays
 } from 'lucide-react'
 import { DIET_STYLES, INTENSITY_OPTIONS } from '@/types/nutrition'
 import { DietLoadingScreen } from '../DietLoadingScreen'
@@ -33,6 +34,10 @@ export function ReviewStep() {
   // Estado para controlar expansão da seção de geladeira
   const [showFridgeSection, setShowFridgeSection] = useState(false)
   const [fridgeText, setFridgeText] = useState('')
+
+  // Estado para seleção de intervalo de datas
+  const [dateRange, setDateRange] = useState<'today' | 'tomorrow' | 'week' | 'custom'>('week')
+  const [customDays, setCustomDays] = useState(7)
 
   // Carregar texto da geladeira do estado
   useEffect(() => {
@@ -457,6 +462,96 @@ Queijo minas`}
         )}
       </Card>
 
+      {/* Card de Seleção de Período */}
+      <Card>
+        <CardHeader
+          title="Período da Dieta"
+          icon={<CalendarDays className="w-5 h-5 text-purple-400" />}
+        />
+        <CardContent>
+          <p className="text-sm text-gray-400 mb-3">
+            Para quantos dias você quer gerar a dieta?
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setDateRange('today')}
+              className={`p-3 rounded-lg border transition-all ${
+                dateRange === 'today'
+                  ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                  : 'border-gray-600 bg-gray-800/50 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <p className="font-medium">Só Hoje</p>
+              <p className="text-xs opacity-70">1 dia</p>
+            </button>
+            <button
+              onClick={() => setDateRange('tomorrow')}
+              className={`p-3 rounded-lg border transition-all ${
+                dateRange === 'tomorrow'
+                  ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                  : 'border-gray-600 bg-gray-800/50 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <p className="font-medium">Só Amanhã</p>
+              <p className="text-xs opacity-70">1 dia</p>
+            </button>
+            <button
+              onClick={() => setDateRange('week')}
+              className={`p-3 rounded-lg border transition-all ${
+                dateRange === 'week'
+                  ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                  : 'border-gray-600 bg-gray-800/50 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <p className="font-medium">Semana Toda</p>
+              <p className="text-xs opacity-70">7 dias</p>
+            </button>
+            <button
+              onClick={() => setDateRange('custom')}
+              className={`p-3 rounded-lg border transition-all ${
+                dateRange === 'custom'
+                  ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                  : 'border-gray-600 bg-gray-800/50 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              <p className="font-medium">Personalizado</p>
+              <p className="text-xs opacity-70">Escolher dias</p>
+            </button>
+          </div>
+
+          {/* Slider para dias personalizados */}
+          {dateRange === 'custom' && (
+            <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-400">Número de dias:</span>
+                <span className="text-lg font-bold text-purple-400">{customDays} dias</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="7"
+                value={customDays}
+                onChange={(e) => setCustomDays(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>1</span>
+                <span>7</span>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 p-2 bg-purple-500/10 rounded-lg">
+            <p className="text-xs text-purple-300 text-center">
+              {dateRange === 'today' && '📅 Gerando cardápio apenas para hoje'}
+              {dateRange === 'tomorrow' && '📅 Gerando cardápio apenas para amanhã'}
+              {dateRange === 'week' && '📅 Gerando cardápio para os próximos 7 dias'}
+              {dateRange === 'custom' && `📅 Gerando cardápio para os próximos ${customDays} dia${customDays > 1 ? 's' : ''}`}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Botões de ação */}
       <div className="space-y-3">
         <Button
@@ -468,7 +563,7 @@ Queijo minas`}
           leftIcon={isGeneratingDiet ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
           className="bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600"
         >
-          {isGeneratingDiet ? 'Gerando sua dieta...' : '✨ Gerar Minha Dieta'}
+          {isGeneratingDiet ? 'Gerando sua dieta...' : `✨ Gerar Dieta (${dateRange === 'today' ? '1 dia' : dateRange === 'tomorrow' ? '1 dia' : dateRange === 'week' ? '7 dias' : `${customDays} dias`})`}
         </Button>
 
         <Button
