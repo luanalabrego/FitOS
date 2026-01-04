@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Menu, User, LogOut, LogIn } from 'lucide-react'
 import { Logo } from './Logo'
+import { Sidebar } from './Sidebar'
 import { getCurrentUser, onAuthChange, signOut, isEmailUser } from '@/services/authService'
 import type { User as FirebaseUser } from 'firebase/auth'
 
@@ -12,6 +13,7 @@ export function Header() {
   const router = useRouter()
   const [user, setUser] = useState<FirebaseUser | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -42,11 +44,17 @@ export function Header() {
   const isLoggedIn = user && !user.isAnonymous
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
-      <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-        <button className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-          <Menu className="w-6 h-6 text-gray-400" />
-        </button>
+    <>
+      <Sidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} />
+
+      <header className="fixed top-0 left-0 right-0 z-40 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
+        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
+          <button
+            onClick={() => setShowSidebar(true)}
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <Menu className="w-6 h-6 text-gray-400" />
+          </button>
 
         <Link href="/">
           <Logo size="sm" />
@@ -134,5 +142,6 @@ export function Header() {
         </div>
       </div>
     </header>
+    </>
   )
 }

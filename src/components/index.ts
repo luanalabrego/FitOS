@@ -1,5 +1,6 @@
 export { Logo } from './Logo'
 export { Header } from './Header'
+export { Sidebar } from './Sidebar'
 export { FeatureCard } from './FeatureCard'
 export { GoalButton } from './GoalButton'
 
@@ -8,3 +9,6 @@ export * from './ui'
 
 // Profile Components
 export * from './profile'
+
+// Nutrition Components
+export * from './nutrition'
