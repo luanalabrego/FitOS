@@ -338,7 +338,7 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
   }
 
   // Gerar dieta
-  const generateDiet = async () => {
+  const generateDiet = async (selectedDates?: Date[]) => {
     if (!userProfile || !userId) return
 
     try {
@@ -369,6 +369,7 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
       console.log('🍽️ Gerando dieta com fridgeInventory:', state.nutritionProfile.fridgeInventory)
       console.log('🍽️ useOnlyFridgeItems:', state.nutritionProfile.fridgeInventory?.useOnlyFridgeItems)
       console.log('🍽️ items:', state.nutritionProfile.fridgeInventory?.items)
+      console.log('📅 Datas selecionadas:', selectedDates?.map(d => d.toLocaleDateString('pt-BR')))
 
       const diet = await generateDietWithGPT({
         userProfile,
@@ -376,7 +377,8 @@ export function NutritionProvider({ children }: NutritionProviderProps) {
         dietGoal: state.nutritionProfile.dietGoal as DietGoal,
         mealPlan: state.nutritionProfile.mealPlan as MealPlan,
         nutritionTargets: targets,  // Usar as metas recalculadas
-        fridgeInventory: state.nutritionProfile.fridgeInventory as FridgeInventory
+        fridgeInventory: state.nutritionProfile.fridgeInventory as FridgeInventory,
+        selectedDates
       })
 
       dispatch({ type: 'SET_WEEKLY_DIET', payload: diet })

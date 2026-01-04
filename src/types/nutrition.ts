@@ -147,6 +147,7 @@ export interface DailyConsumption {
 }
 
 export interface DailyDiet {
+  date: string  // Data no formato DD/MM/YYYY
   dayOfWeek: DayOfWeek
   dayName: string
   meals: Meal[]

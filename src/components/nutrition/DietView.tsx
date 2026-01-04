@@ -70,6 +70,14 @@ const formatDateDisplay = (date: Date): string => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
+// Formata data no padrão DD/MM/YYYY (para match com diet.date)
+const formatDateBR = (date: Date): string => {
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
 // Obter dia da semana em português
 const getDayOfWeekKey = (date: Date): string => {
   const days = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado']
@@ -535,7 +543,11 @@ export function DietView() {
     )
   }
 
-  const selectedDayData = currentDiet.days.find(d => d.dayOfWeek === selectedDayOfWeek) || currentDiet.days[0]
+  // Match by date first (new format), then fallback to dayOfWeek (legacy format)
+  const selectedDateBR = formatDateBR(selectedDate)
+  const selectedDayData = currentDiet.days.find(d => d.date === selectedDateBR)
+    || currentDiet.days.find(d => d.dayOfWeek === selectedDayOfWeek)
+    || currentDiet.days[0]
   const isLosing = (dietGoal?.currentWeight || 0) > (dietGoal?.targetWeight || 0)
 
   const getMacroPercentage = (current: number, target: number) => {
@@ -731,7 +743,7 @@ export function DietView() {
                   {selectedDayData.dayName}
                 </h3>
                 <p className="text-sm text-gray-400">
-                  {formatDateDisplay(selectedDate)} {isToday && <span className="text-primary-400">(Hoje)</span>}
+                  {selectedDayData.date || formatDateDisplay(selectedDate)} {isToday && <span className="text-primary-400">(Hoje)</span>}
                 </p>
               </div>
               <span className="text-sm text-gray-400">
