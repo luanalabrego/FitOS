@@ -4,15 +4,125 @@ import { useNutrition } from '@/contexts/NutritionContext'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { FOOD_CATEGORIES, DIET_STYLES, DietStyle } from '@/types/nutrition'
-import { Heart, ThumbsDown, ThumbsUp, AlertTriangle, ArrowLeft, ArrowRight, ChefHat } from 'lucide-react'
+import { Heart, ThumbsDown, ThumbsUp, AlertTriangle, ArrowLeft, ArrowRight, ChefHat, HelpCircle, X } from 'lucide-react'
 import { useState } from 'react'
 
 type FoodCategory = keyof typeof FOOD_CATEGORIES
+
+// Explicações detalhadas de cada dieta
+const DIET_EXPLANATIONS: Record<DietStyle, { title: string; description: string; benefits: string[]; foods: { allowed: string[]; avoid: string[] }; macros: string }> = {
+  tradicional: {
+    title: 'Dieta Brasileira Tradicional',
+    description: 'A dieta tradicional brasileira é baseada em alimentos naturais e preparações típicas do nosso país. É equilibrada e fácil de seguir no dia a dia.',
+    benefits: [
+      'Fácil de encontrar os alimentos',
+      'Preparações simples e conhecidas',
+      'Equilibrada em todos os macronutrientes',
+      'Flexível e sustentável a longo prazo'
+    ],
+    foods: {
+      allowed: ['Arroz', 'Feijão', 'Carnes magras', 'Frango', 'Peixe', 'Ovos', 'Frutas', 'Legumes', 'Verduras'],
+      avoid: ['Alimentos ultraprocessados', 'Excesso de açúcar', 'Frituras em excesso']
+    },
+    macros: 'Proteína: 20-30% | Carboidratos: 45-55% | Gorduras: 25-30%'
+  },
+  cetogenica: {
+    title: 'Dieta Cetogênica (Keto)',
+    description: 'A dieta cetogênica é muito baixa em carboidratos e alta em gorduras. Força o corpo a usar gordura como fonte principal de energia, entrando em estado de cetose.',
+    benefits: [
+      'Perda de peso acelerada',
+      'Redução do apetite',
+      'Melhora na clareza mental',
+      'Controle da glicemia'
+    ],
+    foods: {
+      allowed: ['Carnes', 'Peixes', 'Ovos', 'Queijos', 'Manteiga', 'Azeite', 'Abacate', 'Castanhas', 'Vegetais folhosos'],
+      avoid: ['Arroz', 'Feijão', 'Pão', 'Massas', 'Frutas doces', 'Açúcar', 'Tubérculos', 'Grãos']
+    },
+    macros: 'Proteína: 20% | Carboidratos: máx 5% (25g) | Gorduras: 75%'
+  },
+  low_carb: {
+    title: 'Dieta Low Carb',
+    description: 'Reduz significativamente os carboidratos sem ser tão restritiva quanto a cetogênica. Permite mais flexibilidade mantendo os benefícios da redução de carbs.',
+    benefits: [
+      'Perda de peso moderada',
+      'Mais flexível que a keto',
+      'Controle da insulina',
+      'Redução da retenção de líquidos'
+    ],
+    foods: {
+      allowed: ['Carnes', 'Peixes', 'Ovos', 'Legumes', 'Algumas frutas', 'Queijos', 'Iogurte natural'],
+      avoid: ['Pão branco', 'Arroz branco', 'Massas', 'Açúcar', 'Doces', 'Refrigerantes']
+    },
+    macros: 'Proteína: 30-35% | Carboidratos: máx 20% (100g) | Gorduras: 45-50%'
+  },
+  mediterranea: {
+    title: 'Dieta Mediterrânea',
+    description: 'Baseada na alimentação dos países do Mediterrâneo. Rica em gorduras saudáveis, peixes, vegetais e grãos integrais. Uma das dietas mais estudadas e recomendadas.',
+    benefits: [
+      'Proteção cardiovascular',
+      'Anti-inflamatória',
+      'Rica em antioxidantes',
+      'Sustentável a longo prazo'
+    ],
+    foods: {
+      allowed: ['Azeite de oliva', 'Peixes', 'Frango', 'Legumes', 'Frutas', 'Grãos integrais', 'Nozes', 'Ervas'],
+      avoid: ['Carnes processadas', 'Açúcar refinado', 'Alimentos ultraprocessados']
+    },
+    macros: 'Proteína: 15-20% | Carboidratos: 40-45% | Gorduras: 35-40%'
+  },
+  vegetariana: {
+    title: 'Dieta Vegetariana',
+    description: 'Exclui carnes mas permite ovos e laticínios. Requer atenção especial para garantir proteínas e nutrientes adequados.',
+    benefits: [
+      'Menor impacto ambiental',
+      'Rica em fibras',
+      'Pode reduzir colesterol',
+      'Variedade de alimentos'
+    ],
+    foods: {
+      allowed: ['Ovos', 'Leite', 'Queijos', 'Iogurte', 'Leguminosas', 'Tofu', 'Grãos', 'Frutas', 'Vegetais'],
+      avoid: ['Carnes vermelhas', 'Frango', 'Peixe', 'Frutos do mar']
+    },
+    macros: 'Proteína: 20-25% | Carboidratos: 50-55% | Gorduras: 25-30%'
+  },
+  vegana: {
+    title: 'Dieta Vegana',
+    description: 'Exclui todos os produtos de origem animal. Requer planejamento cuidadoso e possivelmente suplementação de B12.',
+    benefits: [
+      'Menor impacto ambiental',
+      'Rica em fibras e antioxidantes',
+      'Pode melhorar digestão',
+      'Ética animal'
+    ],
+    foods: {
+      allowed: ['Leguminosas', 'Tofu', 'Tempeh', 'Grãos', 'Frutas', 'Vegetais', 'Castanhas', 'Sementes'],
+      avoid: ['Carnes', 'Peixes', 'Ovos', 'Leite', 'Queijos', 'Mel']
+    },
+    macros: 'Proteína: 20-25% | Carboidratos: 50-55% | Gorduras: 25-30%'
+  },
+  flexivel: {
+    title: 'Dieta Flexível (IIFYM)',
+    description: '"If It Fits Your Macros" - foca em atingir metas de macronutrientes, permitindo qualquer alimento dentro dos números. Ideal para quem quer flexibilidade.',
+    benefits: [
+      'Máxima flexibilidade',
+      'Sustentável socialmente',
+      'Sem alimentos proibidos',
+      'Foco em educação nutricional'
+    ],
+    foods: {
+      allowed: ['Qualquer alimento que caiba nos macros', 'Priorize 80% alimentos nutritivos'],
+      avoid: ['Nada é proibido, mas moderação é chave']
+    },
+    macros: 'Proteína: 25-30% | Carboidratos: 40-45% | Gorduras: 25-30%'
+  }
+}
 
 export function PreferencesStep() {
   const { state, dispatch, nextStep, prevStep } = useNutrition()
   const { foodPreferences } = state.nutritionProfile
   const [activeTab, setActiveTab] = useState<'style' | 'dislike' | 'love' | 'restrict'>('style')
+  const [showDietInfo, setShowDietInfo] = useState<DietStyle | null>(null)
 
   const toggleFood = (list: 'dislikedFoods' | 'mustHaveFoods' | 'restrictions', food: string) => {
     const currentList = foodPreferences?.[list] || []
@@ -153,29 +263,41 @@ export function PreferencesStep() {
               </p>
               <div className="grid gap-3">
                 {(Object.entries(DIET_STYLES) as [DietStyle, typeof DIET_STYLES[DietStyle]][]).map(([key, style]) => (
-                  <button
-                    key={key}
-                    onClick={() => selectDietStyle(key)}
-                    className={`
-                      p-4 rounded-xl border-2 transition-all text-left
-                      flex items-center gap-4
-                      ${foodPreferences?.dietStyle === key
-                        ? 'border-primary-500 bg-primary-500/10'
-                        : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-                      }
-                    `}
-                  >
-                    <span className="text-3xl">{style.icon}</span>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-white">{style.label}</h4>
-                      <p className="text-sm text-gray-400">{style.description}</p>
-                    </div>
-                    {foodPreferences?.dietStyle === key && (
-                      <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs">✓</span>
+                  <div key={key} className="relative">
+                    <button
+                      onClick={() => selectDietStyle(key)}
+                      className={`
+                        w-full p-4 rounded-xl border-2 transition-all text-left
+                        flex items-center gap-4
+                        ${foodPreferences?.dietStyle === key
+                          ? 'border-primary-500 bg-primary-500/10'
+                          : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
+                        }
+                      `}
+                    >
+                      <span className="text-3xl">{style.icon}</span>
+                      <div className="flex-1 pr-8">
+                        <h4 className="font-semibold text-white">{style.label}</h4>
+                        <p className="text-sm text-gray-400">{style.description}</p>
                       </div>
-                    )}
-                  </button>
+                      {foodPreferences?.dietStyle === key && (
+                        <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">✓</span>
+                        </div>
+                      )}
+                    </button>
+                    {/* Botão de ajuda */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowDietInfo(key)
+                      }}
+                      className="absolute top-3 right-3 p-1.5 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white transition-colors"
+                      title="Saiba mais sobre esta dieta"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -303,6 +425,109 @@ export function PreferencesStep() {
           Continuar
         </Button>
       </div>
+
+      {/* Modal de informações da dieta */}
+      {showDietInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-primary-600 to-accent-600 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{DIET_STYLES[showDietInfo].icon}</span>
+                <h3 className="text-lg font-bold text-white">
+                  {DIET_EXPLANATIONS[showDietInfo].title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowDietInfo(null)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="p-4 max-h-[70vh] overflow-y-auto space-y-4">
+              {/* Descrição */}
+              <div>
+                <p className="text-gray-300 leading-relaxed">
+                  {DIET_EXPLANATIONS[showDietInfo].description}
+                </p>
+              </div>
+
+              {/* Macros */}
+              <div className="p-3 bg-primary-500/10 rounded-lg border border-primary-500/30">
+                <h4 className="text-sm font-medium text-primary-400 mb-1">Distribuição de Macros</h4>
+                <p className="text-white text-sm font-mono">
+                  {DIET_EXPLANATIONS[showDietInfo].macros}
+                </p>
+              </div>
+
+              {/* Benefícios */}
+              <div>
+                <h4 className="text-sm font-medium text-green-400 mb-2 flex items-center gap-2">
+                  <span>✅</span> Benefícios
+                </h4>
+                <ul className="space-y-1">
+                  {DIET_EXPLANATIONS[showDietInfo].benefits.map((benefit, index) => (
+                    <li key={index} className="text-gray-300 text-sm flex items-start gap-2">
+                      <span className="text-green-400 mt-1">•</span>
+                      {benefit}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Alimentos Permitidos */}
+              <div>
+                <h4 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
+                  <span>👍</span> Alimentos Permitidos
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {DIET_EXPLANATIONS[showDietInfo].foods.allowed.map((food, index) => (
+                    <span key={index} className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                      {food}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Alimentos a Evitar */}
+              <div>
+                <h4 className="text-sm font-medium text-red-400 mb-2 flex items-center gap-2">
+                  <span>👎</span> Evitar/Limitar
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {DIET_EXPLANATIONS[showDietInfo].foods.avoid.map((food, index) => (
+                    <span key={index} className="px-2 py-1 bg-red-500/20 text-red-300 text-xs rounded-full">
+                      {food}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-gray-800/50 border-t border-gray-700 flex gap-3">
+              <button
+                onClick={() => setShowDietInfo(null)}
+                className="flex-1 p-3 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                onClick={() => {
+                  selectDietStyle(showDietInfo)
+                  setShowDietInfo(null)
+                }}
+                className="flex-1 p-3 rounded-lg bg-primary-500 hover:bg-primary-600 text-white font-medium transition-colors"
+              >
+                Escolher Esta Dieta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
