@@ -94,6 +94,10 @@ export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal, re
   const avgCalories = periodConsumptions.length > 0 ? Math.round(totalCalories / periodConsumptions.length) : 0
   const totalProtein = periodConsumptions.reduce((sum, c) => sum + c.totalProtein, 0)
   const avgProtein = periodConsumptions.length > 0 ? Math.round(totalProtein / periodConsumptions.length) : 0
+  const totalCarbs = periodConsumptions.reduce((sum, c) => sum + c.totalCarbs, 0)
+  const avgCarbs = periodConsumptions.length > 0 ? Math.round(totalCarbs / periodConsumptions.length) : 0
+  const totalFat = periodConsumptions.reduce((sum, c) => sum + c.totalFat, 0)
+  const avgFat = periodConsumptions.length > 0 ? Math.round(totalFat / periodConsumptions.length) : 0
 
   // Dias dentro da meta (±10%)
   const daysOnTarget = periodConsumptions.filter(c => {
@@ -184,7 +188,7 @@ export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal, re
       </div>
 
       {/* Estatísticas do período */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-3 gap-2 mb-2">
         <div className="bg-gray-700/50 rounded-lg p-3 text-center">
           <Flame className="w-5 h-5 text-orange-400 mx-auto mb-1" />
           <p className="text-lg font-bold text-white">{avgCalories}</p>
@@ -194,11 +198,6 @@ export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal, re
           <Target className="w-5 h-5 text-green-400 mx-auto mb-1" />
           <p className="text-lg font-bold text-white">{daysOnTarget}</p>
           <p className="text-xs text-gray-400">na meta</p>
-        </div>
-        <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-          <span className="text-xl">🥩</span>
-          <p className="text-lg font-bold text-white">{avgProtein}g</p>
-          <p className="text-xs text-gray-400">prot/dia</p>
         </div>
         <div className="bg-gray-700/50 rounded-lg p-3 text-center">
           {trend <= 0 ? (
@@ -213,7 +212,23 @@ export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal, re
         </div>
       </div>
 
-      {/* Gráfico de barras */}
+      {/* Médias de macros */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="bg-blue-500/10 rounded-lg p-2 text-center border border-blue-500/30">
+          <p className="text-sm font-bold text-blue-400">{avgProtein}g</p>
+          <p className="text-xs text-gray-400">Proteína/dia</p>
+        </div>
+        <div className="bg-yellow-500/10 rounded-lg p-2 text-center border border-yellow-500/30">
+          <p className="text-sm font-bold text-yellow-400">{avgCarbs}g</p>
+          <p className="text-xs text-gray-400">Carbs/dia</p>
+        </div>
+        <div className="bg-purple-500/10 rounded-lg p-2 text-center border border-purple-500/30">
+          <p className="text-sm font-bold text-purple-400">{avgFat}g</p>
+          <p className="text-xs text-gray-400">Gordura/dia</p>
+        </div>
+      </div>
+
+      {/* Gráfico de barras com macros */}
       <div className="bg-gray-700/30 rounded-lg p-4">
         {periodConsumptions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -224,58 +239,105 @@ export function EvolutionView({ calorieGoal, proteinGoal, carbsGoal, fatGoal, re
         ) : (
           <>
             {/* Linha de meta */}
-            <div className="relative h-40">
+            <div className="relative h-48">
               <div className="absolute inset-x-0 top-1/3 border-t border-dashed border-gray-500 z-10">
                 <span className="absolute -top-2.5 right-0 text-xs text-gray-400 bg-gray-700 px-1">
                   Meta {calorieGoal}
                 </span>
               </div>
 
-              {/* Barras */}
+              {/* Barras com macros */}
               <div className="flex items-end justify-between h-full gap-1">
-                {dates.map((date, index) => {
+                {dates.slice(0, viewMode === 'week' ? 7 : 14).map((date, index) => {
                   const consumption = consumptionByDate.get(date)
-                  const dayOfWeek = new Date(date).toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)
-                  const dayNum = new Date(date).getDate()
+                  const dateObj = new Date(date)
+                  const dayOfWeek = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)
+                  const dayNum = dateObj.getDate()
+                  const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).slice(0, 3)
                   const isToday = date === new Date().toISOString().split('T')[0]
+
+                  // Calcular alturas dos macros (empilhados)
+                  const proteinHeight = consumption ? (consumption.totalProtein / proteinGoal) * 40 : 0
+                  const carbsHeight = consumption ? (consumption.totalCarbs / carbsGoal) * 40 : 0
+                  const fatHeight = consumption ? (consumption.totalFat / fatGoal) * 40 : 0
 
                   return (
                     <div
                       key={date}
-                      className={`flex-1 flex flex-col items-center ${viewMode === 'month' && index > 6 ? 'hidden sm:flex' : ''}`}
+                      className={`flex-1 flex flex-col items-center ${viewMode === 'month' && index > 13 ? 'hidden' : ''}`}
                     >
-                      <div className="w-full h-32 flex items-end justify-center">
+                      <div className="w-full h-36 flex items-end justify-center">
                         {consumption ? (
-                          <div
-                            className={`w-full max-w-6 rounded-t transition-all ${getBarColor(consumption.totalCalories)}`}
-                            style={{ height: `${getBarHeight(consumption.totalCalories) * 0.8}%` }}
-                            title={`${consumption.totalCalories} kcal`}
-                          />
+                          <div className="flex flex-col items-center w-full max-w-8">
+                            {/* Barra empilhada de macros */}
+                            <div className="w-full flex flex-col-reverse">
+                              {/* Gordura (roxo) */}
+                              <div
+                                className="w-full bg-purple-500 rounded-t-sm"
+                                style={{ height: `${Math.min(fatHeight, 40)}px` }}
+                                title={`Gordura: ${consumption.totalFat}g`}
+                              />
+                              {/* Carboidrato (amarelo) */}
+                              <div
+                                className="w-full bg-yellow-500"
+                                style={{ height: `${Math.min(carbsHeight, 40)}px` }}
+                                title={`Carbs: ${consumption.totalCarbs}g`}
+                              />
+                              {/* Proteína (azul) */}
+                              <div
+                                className="w-full bg-blue-500 rounded-b-sm"
+                                style={{ height: `${Math.min(proteinHeight, 40)}px` }}
+                                title={`Proteína: ${consumption.totalProtein}g`}
+                              />
+                            </div>
+                            {/* Indicador de calorias totais */}
+                            <div className={`w-1.5 h-1.5 rounded-full mt-1 ${getBarColor(consumption.totalCalories)}`}
+                                 title={`${consumption.totalCalories} kcal`} />
+                          </div>
                         ) : (
-                          <div className="w-full max-w-6 h-1 bg-gray-600 rounded" />
+                          <div className="w-full max-w-8 h-1 bg-gray-600 rounded" />
                         )}
                       </div>
-                      <span className={`text-xs mt-1 ${isToday ? 'text-primary-400 font-bold' : 'text-gray-500'}`}>
-                        {viewMode === 'week' ? dayOfWeek : dayNum}
-                      </span>
+                      {/* Data formatada */}
+                      <div className={`text-center mt-1 ${isToday ? 'text-primary-400 font-bold' : 'text-gray-500'}`}>
+                        <p className="text-xs">{dayNum}/{month}</p>
+                        <p className="text-[10px]">{dayOfWeek}</p>
+                      </div>
                     </div>
                   )
                 })}
               </div>
             </div>
 
-            {/* Legenda */}
+            {/* Legenda de macros */}
             <div className="flex justify-center gap-4 mt-4 text-xs">
               <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-green-500" />
-                <span className="text-gray-400">Na meta</span>
+                <div className="w-3 h-3 rounded bg-blue-500" />
+                <span className="text-gray-400">Proteína</span>
               </span>
               <span className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-yellow-500" />
+                <span className="text-gray-400">Carbs</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-purple-500" />
+                <span className="text-gray-400">Gordura</span>
+              </span>
+            </div>
+
+            {/* Legenda de calorias */}
+            <div className="flex justify-center gap-4 mt-2 text-xs border-t border-gray-600 pt-2">
+              <span className="text-gray-500">Calorias:</span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-gray-400">Na meta</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
                 <span className="text-gray-400">Abaixo</span>
               </span>
               <span className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-red-500" />
+                <div className="w-2 h-2 rounded-full bg-red-500" />
                 <span className="text-gray-400">Acima</span>
               </span>
             </div>
