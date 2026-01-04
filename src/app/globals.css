@@ -102,3 +102,117 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Diet Loading Screen Animations */
+@keyframes floatFood1 {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.8;
+  }
+  25% {
+    transform: translate(20px, -30px) rotate(15deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-10px, -50px) rotate(-10deg);
+    opacity: 0.9;
+  }
+  75% {
+    transform: translate(-30px, -20px) rotate(5deg);
+    opacity: 1;
+  }
+}
+
+@keyframes floatFood2 {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate(-25px, -40px) rotate(-20deg) scale(1.1);
+  }
+  66% {
+    transform: translate(15px, -60px) rotate(10deg) scale(0.95);
+  }
+}
+
+@keyframes floatFood3 {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  20% {
+    transform: translate(30px, -20px) rotate(25deg);
+  }
+  40% {
+    transform: translate(10px, -45px) rotate(-15deg);
+  }
+  60% {
+    transform: translate(-20px, -35px) rotate(10deg);
+  }
+  80% {
+    transform: translate(-10px, -15px) rotate(-5deg);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes textChange {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@layer utilities {
+  .animate-float-food-1 {
+    animation: floatFood1 4s ease-in-out infinite;
+  }
+
+  .animate-float-food-2 {
+    animation: floatFood2 5s ease-in-out infinite;
+  }
+
+  .animate-float-food-3 {
+    animation: floatFood3 6s ease-in-out infinite;
+  }
+
+  .animate-bounce-slow {
+    animation: bounce 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.5s ease-out forwards;
+  }
+}
