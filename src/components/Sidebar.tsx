@@ -139,12 +139,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-fade-in"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-fade-in"
         onClick={onClose}
       />
 
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-gray-900 border-r border-gray-800 z-50 animate-slide-in-left overflow-y-auto">
+      <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-gray-900 border-r border-gray-800 z-[100] animate-slide-in-left overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <Logo size="sm" />
