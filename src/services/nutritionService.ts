@@ -354,6 +354,7 @@ ${mealNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
 4. Varie os alimentos para não enjoar, mas mantenha simples
 5. Priorize preparos rápidos e práticos do dia a dia brasileiro
 6. Dê 2 dicas práticas por dia relacionadas ao preparo ou benefícios dos alimentos
+7. **IMPORTANTE**: Para CADA alimento, forneça 2 ALTERNATIVAS que podem substituí-lo (com valores nutricionais similares)
 
 ## FORMATO JSON (RESPONDA APENAS O JSON)
 {
@@ -365,7 +366,20 @@ ${mealNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
 ${mealNames.map((name, i) => `        {
           "name": "${name}",
           "time": "${getMealTime(i, mealPlan.mealsPerDay)}",
-          "foods": [{"name": "...", "quantity": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}],
+          "foods": [
+            {
+              "name": "nome do alimento",
+              "quantity": "quantidade",
+              "calories": 0,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 0,
+              "alternatives": [
+                {"name": "alternativa 1", "quantity": "quantidade", "calories": 0, "protein": 0, "carbs": 0, "fat": 0},
+                {"name": "alternativa 2", "quantity": "quantidade", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}
+              ]
+            }
+          ],
           "totalCalories": 0,
           "totalProtein": 0,
           "totalCarbs": 0,

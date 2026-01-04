@@ -3,7 +3,7 @@
 import { useNutrition } from '@/contexts/NutritionContext'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { DAYS_OF_WEEK, DayOfWeek, Meal } from '@/types/nutrition'
+import { DAYS_OF_WEEK, DayOfWeek, Meal, MealLog, ConsumedFood, DailyConsumption, FoodItem } from '@/types/nutrition'
 import {
   RefreshCw,
   Settings,
@@ -21,10 +21,15 @@ import {
   Target,
   Sparkles,
   ArrowRightLeft,
-  X
+  X,
+  Check,
+  Plus,
+  ClipboardList,
+  PieChart,
+  BarChart3
 } from 'lucide-react'
-import { useState } from 'react'
-import { FoodItem } from '@/types/nutrition'
+import { useState, useEffect } from 'react'
+import { EvolutionView } from './EvolutionView'
 
 // Opções de substituição por categoria
 const FOOD_SUBSTITUTIONS: Record<string, string[]> = {
@@ -52,6 +57,11 @@ const FOOD_SUBSTITUTIONS: Record<string, string[]> = {
   'iogurte': ['iogurte grego', 'coalhada', 'kefir']
 }
 
+// Formato de data para storage
+const getDateKey = (date: Date = new Date()) => {
+  return date.toISOString().split('T')[0]
+}
+
 export function DietView() {
   const { state, dispatch, startEditing, regenerateDiet } = useNutrition()
   const { nutritionProfile, selectedDay, isGeneratingDiet } = state
@@ -59,6 +69,159 @@ export function DietView() {
 
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null)
   const [showAllMilestones, setShowAllMilestones] = useState(false)
+
+  // Estado para registro de refeições
+  const [showMealLogModal, setShowMealLogModal] = useState(false)
+  const [selectedMealForLog, setSelectedMealForLog] = useState<Meal | null>(null)
+  const [dailyConsumption, setDailyConsumption] = useState<DailyConsumption | null>(null)
+  const [customFoodName, setCustomFoodName] = useState('')
+  const [customFoodGrams, setCustomFoodGrams] = useState('')
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [selectedFoods, setSelectedFoods] = useState<ConsumedFood[]>([])
+  const [showCustomInput, setShowCustomInput] = useState(false)
+
+  // Carregar consumo do dia do localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(`consumption_${getDateKey()}`)
+    if (stored) {
+      setDailyConsumption(JSON.parse(stored))
+    } else if (nutritionTargets) {
+      // Inicializar consumo do dia
+      setDailyConsumption({
+        date: getDateKey(),
+        userId: currentDiet?.userId || '',
+        mealLogs: [],
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        calorieGoal: nutritionTargets.calories,
+        proteinGoal: nutritionTargets.protein,
+        carbsGoal: nutritionTargets.carbs,
+        fatGoal: nutritionTargets.fat
+      })
+    }
+  }, [nutritionTargets, currentDiet?.userId])
+
+  // Salvar consumo no localStorage
+  const saveConsumption = (consumption: DailyConsumption) => {
+    localStorage.setItem(`consumption_${getDateKey()}`, JSON.stringify(consumption))
+    setDailyConsumption(consumption)
+  }
+
+  // Abrir modal de registro de refeição
+  const openMealLogModal = (meal: Meal) => {
+    setSelectedMealForLog(meal)
+    setSelectedFoods([])
+    setShowCustomInput(false)
+    setCustomFoodName('')
+    setCustomFoodGrams('')
+    setShowMealLogModal(true)
+  }
+
+  // Adicionar alimento da dieta à seleção
+  const toggleFoodSelection = (food: FoodItem, alternative?: { name: string; quantity: string; calories: number; protein: number; carbs: number; fat: number }) => {
+    const foodData = alternative || food
+    const existingIndex = selectedFoods.findIndex(f => f.name === foodData.name)
+
+    if (existingIndex >= 0) {
+      setSelectedFoods(selectedFoods.filter((_, i) => i !== existingIndex))
+    } else {
+      // Extrair gramas da quantidade (aproximado)
+      const gramsMatch = foodData.quantity.match(/(\d+)\s*g/i)
+      const grams = gramsMatch ? parseInt(gramsMatch[1]) : 100
+
+      setSelectedFoods([...selectedFoods, {
+        name: foodData.name,
+        quantity: foodData.quantity,
+        grams,
+        calories: foodData.calories,
+        protein: foodData.protein,
+        carbs: foodData.carbs,
+        fat: foodData.fat,
+        isCustom: false
+      }])
+    }
+  }
+
+  // Calcular calorias de alimento customizado via IA
+  const calculateCustomFood = async () => {
+    if (!customFoodName || !customFoodGrams) return
+
+    setIsCalculating(true)
+    try {
+      const response = await fetch('/api/nutrition/calculate-calories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: customFoodName,
+          grams: parseInt(customFoodGrams)
+        })
+      })
+
+      const data = await response.json()
+      if (data.nutrition) {
+        setSelectedFoods([...selectedFoods, {
+          name: data.nutrition.name,
+          quantity: `${data.nutrition.grams}g`,
+          grams: data.nutrition.grams,
+          calories: data.nutrition.calories,
+          protein: data.nutrition.protein,
+          carbs: data.nutrition.carbs,
+          fat: data.nutrition.fat,
+          isCustom: true
+        }])
+        setCustomFoodName('')
+        setCustomFoodGrams('')
+        setShowCustomInput(false)
+      }
+    } catch (error) {
+      console.error('Erro ao calcular calorias:', error)
+    } finally {
+      setIsCalculating(false)
+    }
+  }
+
+  // Registrar refeição
+  const registerMeal = () => {
+    if (!selectedMealForLog || selectedFoods.length === 0 || !dailyConsumption) return
+
+    const mealLog: MealLog = {
+      id: `log_${Date.now()}`,
+      date: new Date(),
+      mealName: selectedMealForLog.name,
+      foods: selectedFoods,
+      totalCalories: selectedFoods.reduce((sum, f) => sum + f.calories, 0),
+      totalProtein: selectedFoods.reduce((sum, f) => sum + f.protein, 0),
+      totalCarbs: selectedFoods.reduce((sum, f) => sum + f.carbs, 0),
+      totalFat: selectedFoods.reduce((sum, f) => sum + f.fat, 0),
+      createdAt: new Date()
+    }
+
+    const updatedConsumption: DailyConsumption = {
+      ...dailyConsumption,
+      mealLogs: [...dailyConsumption.mealLogs, mealLog],
+      totalCalories: dailyConsumption.totalCalories + mealLog.totalCalories,
+      totalProtein: dailyConsumption.totalProtein + mealLog.totalProtein,
+      totalCarbs: dailyConsumption.totalCarbs + mealLog.totalCarbs,
+      totalFat: dailyConsumption.totalFat + mealLog.totalFat
+    }
+
+    saveConsumption(updatedConsumption)
+    setShowMealLogModal(false)
+    setSelectedMealForLog(null)
+    setSelectedFoods([])
+  }
+
+  // Verificar se uma refeição já foi registrada hoje
+  const isMealLogged = (mealName: string) => {
+    return dailyConsumption?.mealLogs.some(log => log.mealName === mealName) || false
+  }
+
+  // Calcular porcentagem consumida
+  const getConsumptionPercentage = (consumed: number, goal: number) => {
+    return Math.min((consumed / goal) * 100, 100)
+  }
 
   if (!currentDiet) {
     return (
@@ -116,6 +279,40 @@ export function DietView() {
               </button>
             </div>
           </div>
+
+          {/* Barra de progresso do dia */}
+          {dailyConsumption && (
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white text-sm font-medium flex items-center gap-2">
+                  <PieChart className="w-4 h-4" />
+                  Consumo de Hoje
+                </span>
+                <span className="text-primary-100 text-sm">
+                  {dailyConsumption.totalCalories} / {dailyConsumption.calorieGoal} kcal
+                </span>
+              </div>
+              <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    getConsumptionPercentage(dailyConsumption.totalCalories, dailyConsumption.calorieGoal) > 100
+                      ? 'bg-red-500'
+                      : getConsumptionPercentage(dailyConsumption.totalCalories, dailyConsumption.calorieGoal) > 80
+                        ? 'bg-green-500'
+                        : 'bg-yellow-500'
+                  }`}
+                  style={{
+                    width: `${Math.min(getConsumptionPercentage(dailyConsumption.totalCalories, dailyConsumption.calorieGoal), 100)}%`
+                  }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-xs text-primary-100">
+                <span>P: {dailyConsumption.totalProtein}g / {dailyConsumption.proteinGoal}g</span>
+                <span>C: {dailyConsumption.totalCarbs}g / {dailyConsumption.carbsGoal}g</span>
+                <span>G: {dailyConsumption.totalFat}g / {dailyConsumption.fatGoal}g</span>
+              </div>
+            </div>
+          )}
 
           {/* Stats do dia */}
           <div className="grid grid-cols-4 gap-3">
@@ -253,6 +450,8 @@ export function DietView() {
               index={index}
               isExpanded={expandedMeal === meal.id}
               onToggle={() => toggleMeal(meal.id)}
+              onRegisterMeal={() => openMealLogModal(meal)}
+              isLogged={isMealLogged(meal.name)}
             />
           ))}
         </div>
@@ -378,6 +577,18 @@ export function DietView() {
           </Card>
         )}
 
+        {/* Módulo de Evolução */}
+        {nutritionTargets && (
+          <div className="mb-6">
+            <EvolutionView
+              calorieGoal={nutritionTargets.calories}
+              proteinGoal={nutritionTargets.protein}
+              carbsGoal={nutritionTargets.carbs}
+              fatGoal={nutritionTargets.fat}
+            />
+          </div>
+        )}
+
         {/* Botão de ajustar */}
         <Button
           onClick={startEditing}
@@ -390,6 +601,186 @@ export function DietView() {
           Ajustar Preferências
         </Button>
       </div>
+
+      {/* Modal de registro de refeição */}
+      {showMealLogModal && selectedMealForLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+            {/* Header do modal */}
+            <div className="p-4 bg-gradient-to-r from-primary-600 to-accent-600 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5" />
+                  Registrar Refeição
+                </h3>
+                <p className="text-sm text-primary-100">{selectedMealForLog.name}</p>
+              </div>
+              <button
+                onClick={() => setShowMealLogModal(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Conteúdo do modal */}
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              <p className="text-gray-400 text-sm mb-4">
+                Selecione o que você consumiu nesta refeição:
+              </p>
+
+              {/* Lista de alimentos da dieta */}
+              <div className="space-y-3 mb-4">
+                {selectedMealForLog.foods.map((food, index) => (
+                  <div key={index} className="space-y-2">
+                    {/* Alimento principal */}
+                    <button
+                      onClick={() => toggleFoodSelection(food)}
+                      className={`w-full p-3 rounded-lg border transition-all flex items-center justify-between ${
+                        selectedFoods.some(f => f.name === food.name)
+                          ? 'bg-primary-500/20 border-primary-500 text-white'
+                          : 'bg-gray-700/50 border-gray-600 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <p className="font-medium">{food.name}</p>
+                        <p className="text-sm text-gray-400">{food.quantity} - {food.calories} kcal</p>
+                      </div>
+                      {selectedFoods.some(f => f.name === food.name) ? (
+                        <Check className="w-5 h-5 text-primary-400" />
+                      ) : (
+                        <Plus className="w-5 h-5 text-gray-500" />
+                      )}
+                    </button>
+
+                    {/* Alternativas */}
+                    {food.alternatives && food.alternatives.length > 0 && (
+                      <div className="pl-4 space-y-2">
+                        <p className="text-xs text-gray-500">ou escolha uma alternativa:</p>
+                        {food.alternatives.map((alt, altIndex) => (
+                          <button
+                            key={altIndex}
+                            onClick={() => toggleFoodSelection(food, alt)}
+                            className={`w-full p-2 rounded-lg border transition-all flex items-center justify-between text-sm ${
+                              selectedFoods.some(f => f.name === alt.name)
+                                ? 'bg-accent-500/20 border-accent-500 text-white'
+                                : 'bg-gray-700/30 border-gray-600 text-gray-400 hover:border-gray-500'
+                            }`}
+                          >
+                            <div className="text-left">
+                              <p>{alt.name}</p>
+                              <p className="text-xs text-gray-500">{alt.quantity} - {alt.calories} kcal</p>
+                            </div>
+                            {selectedFoods.some(f => f.name === alt.name) ? (
+                              <Check className="w-4 h-4 text-accent-400" />
+                            ) : (
+                              <Plus className="w-4 h-4 text-gray-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Adicionar alimento customizado */}
+              <div className="border-t border-gray-700 pt-4">
+                {!showCustomInput ? (
+                  <button
+                    onClick={() => setShowCustomInput(true)}
+                    className="w-full p-3 rounded-lg border border-dashed border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Adicionar outro alimento
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-400">Digite o alimento e a quantidade:</p>
+                    <input
+                      type="text"
+                      value={customFoodName}
+                      onChange={(e) => setCustomFoodName(e.target.value)}
+                      placeholder="Ex: Arroz integral"
+                      className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 text-white placeholder-gray-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={customFoodGrams}
+                        onChange={(e) => setCustomFoodGrams(e.target.value)}
+                        placeholder="Gramas"
+                        className="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600 text-white placeholder-gray-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                      />
+                      <button
+                        onClick={calculateCustomFood}
+                        disabled={isCalculating || !customFoodName || !customFoodGrams}
+                        className="px-4 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors flex items-center gap-2"
+                      >
+                        {isCalculating ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-5 h-5" />
+                            Adicionar
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setShowCustomInput(false)}
+                      className="text-sm text-gray-500 hover:text-gray-400"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Lista de alimentos selecionados */}
+              {selectedFoods.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-700/50 rounded-lg">
+                  <p className="text-sm text-gray-400 mb-2">Selecionados:</p>
+                  <div className="space-y-2">
+                    {selectedFoods.map((food, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <span className="text-white">
+                          {food.name} {food.isCustom && <span className="text-xs text-accent-400">(outro)</span>}
+                        </span>
+                        <span className="text-primary-400">{food.calories} kcal</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-gray-600 pt-2 flex items-center justify-between font-medium">
+                      <span className="text-white">Total</span>
+                      <span className="text-primary-400">
+                        {selectedFoods.reduce((sum, f) => sum + f.calories, 0)} kcal
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer do modal */}
+            <div className="p-4 bg-gray-800/50 border-t border-gray-700 flex gap-3">
+              <button
+                onClick={() => setShowMealLogModal(false)}
+                className="flex-1 p-3 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={registerMeal}
+                disabled={selectedFoods.length === 0}
+                className="flex-1 p-3 rounded-lg bg-primary-500 hover:bg-primary-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                Registrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -422,9 +813,11 @@ interface MealCardProps {
   index: number
   isExpanded: boolean
   onToggle: () => void
+  onRegisterMeal: () => void
+  isLogged: boolean
 }
 
-function MealCard({ meal, index, isExpanded, onToggle }: MealCardProps) {
+function MealCard({ meal, index, isExpanded, onToggle, onRegisterMeal, isLogged }: MealCardProps) {
   const [showSubstitutions, setShowSubstitutions] = useState<number | null>(null)
   const mealEmojis = ['☕', '🍎', '🍽️', '🥪', '🌙', '🌜']
   const mealColors = [
@@ -442,37 +835,65 @@ function MealCard({ meal, index, isExpanded, onToggle }: MealCardProps) {
         bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-700/50
         transition-all duration-300
         ${isExpanded ? 'ring-2 ring-primary-500/50' : ''}
+        ${isLogged ? 'border-green-500/30' : ''}
       `}
     >
       {/* Header clicável */}
-      <button
-        onClick={onToggle}
-        className="w-full p-4 flex items-center gap-4"
-      >
-        <div className={`
-          w-14 h-14 rounded-xl bg-gradient-to-br ${mealColors[index % mealColors.length]}
-          flex items-center justify-center text-2xl
-        `}>
-          {mealEmojis[index % mealEmojis.length]}
-        </div>
-        <div className="flex-1 text-left">
-          <h4 className="font-bold text-white">{meal.name}</h4>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Clock className="w-3 h-3" />
-            <span>{meal.time}</span>
-            <span className="text-gray-600">•</span>
-            <span>{meal.foods.length} itens</span>
+      <div className="flex items-center">
+        <button
+          onClick={onToggle}
+          className="flex-1 p-4 flex items-center gap-4"
+        >
+          <div className={`
+            w-14 h-14 rounded-xl bg-gradient-to-br ${mealColors[index % mealColors.length]}
+            flex items-center justify-center text-2xl relative
+          `}>
+            {mealEmojis[index % mealEmojis.length]}
+            {isLogged && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+            )}
           </div>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold text-white">{meal.totalCalories}</p>
-          <p className="text-xs text-gray-400">kcal</p>
-        </div>
-        <ChevronRight className={`
-          w-5 h-5 text-gray-400 transition-transform
-          ${isExpanded ? 'rotate-90' : ''}
-        `} />
-      </button>
+          <div className="flex-1 text-left">
+            <h4 className="font-bold text-white flex items-center gap-2">
+              {meal.name}
+              {isLogged && <span className="text-xs text-green-400 font-normal">(registrado)</span>}
+            </h4>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <Clock className="w-3 h-3" />
+              <span>{meal.time}</span>
+              <span className="text-gray-600">•</span>
+              <span>{meal.foods.length} itens</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold text-white">{meal.totalCalories}</p>
+            <p className="text-xs text-gray-400">kcal</p>
+          </div>
+          <ChevronRight className={`
+            w-5 h-5 text-gray-400 transition-transform
+            ${isExpanded ? 'rotate-90' : ''}
+          `} />
+        </button>
+
+        {/* Botão Registrar Refeição */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRegisterMeal()
+          }}
+          className={`mr-4 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+            isLogged
+              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+              : 'bg-primary-500/20 text-primary-400 hover:bg-primary-500/30'
+          }`}
+          title={isLogged ? 'Registrar novamente' : 'Registrar o que comeu'}
+        >
+          <ClipboardList className="w-4 h-4" />
+          <span className="hidden sm:inline">{isLogged ? 'Atualizar' : 'Registrar'}</span>
+        </button>
+      </div>
 
       {/* Conteúdo expandido */}
       {isExpanded && (
@@ -497,35 +918,69 @@ function MealCard({ meal, index, isExpanded, onToggle }: MealCardProps) {
           <div className="space-y-2">
             {meal.foods.map((food, foodIndex) => (
               <div key={foodIndex} className="relative">
-                <div
-                  className="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <p className="text-white font-medium">{food.name}</p>
-                    <p className="text-sm text-gray-400">{food.quantity}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-primary-400">{food.calories} kcal</p>
-                      <p className="text-xs text-gray-500">
-                        P:{food.protein} C:{food.carbs} G:{food.fat}
-                      </p>
+                <div className="p-3 bg-gray-800 rounded-lg">
+                  {/* Alimento principal + alternativas inline */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      {/* Nome com alternativas */}
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="text-white font-medium">{food.name}</span>
+                        {food.alternatives && food.alternatives.length > 0 && (
+                          <>
+                            {food.alternatives.map((alt, altIdx) => (
+                              <span key={altIdx} className="flex items-center gap-1">
+                                <span className="text-gray-500 text-sm">ou</span>
+                                <span className="text-accent-400 font-medium">{alt.name}</span>
+                              </span>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400 mt-1">{food.quantity}</p>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowSubstitutions(showSubstitutions === foodIndex ? null : foodIndex)
-                      }}
-                      className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                      title="Ver opções de substituição"
-                    >
-                      <ArrowRightLeft className="w-4 h-4 text-gray-400 hover:text-primary-400" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-primary-400">{food.calories} kcal</p>
+                        <p className="text-xs text-gray-500">
+                          P:{food.protein} C:{food.carbs} G:{food.fat}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowSubstitutions(showSubstitutions === foodIndex ? null : foodIndex)
+                        }}
+                        className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                        title="Ver mais opções de substituição"
+                      >
+                        <ArrowRightLeft className="w-4 h-4 text-gray-400 hover:text-primary-400" />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Detalhes das alternativas quando expandido */}
+                  {food.alternatives && food.alternatives.length > 0 && showSubstitutions === foodIndex && (
+                    <div className="mt-3 pt-3 border-t border-gray-700">
+                      <p className="text-xs text-gray-500 mb-2">Detalhes das alternativas:</p>
+                      <div className="space-y-2">
+                        {food.alternatives.map((alt, altIdx) => (
+                          <div key={altIdx} className="flex items-center justify-between text-sm bg-gray-700/50 p-2 rounded">
+                            <div>
+                              <span className="text-accent-400">{alt.name}</span>
+                              <span className="text-gray-500 ml-2">({alt.quantity})</span>
+                            </div>
+                            <div className="text-gray-400">
+                              {alt.calories} kcal | P:{alt.protein} C:{alt.carbs} G:{alt.fat}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Painel de substituições */}
-                {showSubstitutions === foodIndex && (
+                {/* Painel de substituições extras (não da IA) */}
+                {showSubstitutions === foodIndex && (!food.alternatives || food.alternatives.length === 0) && (
                   <div className="mt-2 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-medium text-gray-300">
