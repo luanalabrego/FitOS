@@ -160,7 +160,7 @@ function generateMockDiet(params?: DietParams) {
 }
 
 // Gera refeições baseadas no estilo de dieta
-function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCalories: number): MealItem[] {
+function generateMealsForStyle(dietStyle: string, mealsPerDay: number, targetCalories: number): MealItem[] {
 
   // Refeições cetogênicas (alto fat, muito baixo carb)
   const ketoMeals = [
@@ -623,7 +623,60 @@ function generateMealsForStyle(dietStyle: string, mealsPerDay: number, _targetCa
   }
 
   // Ajustar número de refeições
-  return adjustMealsCount(baseMeals, mealsPerDay)
+  const adjustedMeals = adjustMealsCount(baseMeals, mealsPerDay)
+
+  // Escalar calorias para bater com o target
+  return scaleMealsToCalories(adjustedMeals, targetCalories)
+}
+
+// Escala as refeições para bater com a meta de calorias
+function scaleMealsToCalories(meals: MealItem[], targetCalories: number): MealItem[] {
+  const currentTotal = meals.reduce((sum, m) => sum + m.totalCalories, 0)
+
+  // Se já está próximo (±10%), não precisa ajustar
+  if (Math.abs(currentTotal - targetCalories) / targetCalories < 0.1) {
+    return meals
+  }
+
+  const scaleFactor = targetCalories / currentTotal
+
+  return meals.map(meal => {
+    const scaledFoods = meal.foods.map(food => ({
+      ...food,
+      calories: Math.round(food.calories * scaleFactor),
+      protein: Math.round(food.protein * scaleFactor),
+      carbs: Math.round(food.carbs * scaleFactor),
+      fat: Math.round(food.fat * scaleFactor),
+      quantity: scaleQuantity(food.quantity, scaleFactor),
+      alternatives: food.alternatives?.map(alt => ({
+        ...alt,
+        calories: Math.round(alt.calories * scaleFactor),
+        protein: Math.round(alt.protein * scaleFactor),
+        carbs: Math.round(alt.carbs * scaleFactor),
+        fat: Math.round(alt.fat * scaleFactor),
+        quantity: scaleQuantity(alt.quantity, scaleFactor)
+      }))
+    }))
+
+    return {
+      ...meal,
+      foods: scaledFoods,
+      totalCalories: scaledFoods.reduce((sum, f) => sum + f.calories, 0),
+      totalProtein: scaledFoods.reduce((sum, f) => sum + f.protein, 0),
+      totalCarbs: scaledFoods.reduce((sum, f) => sum + f.carbs, 0),
+      totalFat: scaledFoods.reduce((sum, f) => sum + f.fat, 0)
+    }
+  })
+}
+
+// Ajusta a string de quantidade baseado no fator de escala
+function scaleQuantity(quantity: string, factor: number): string {
+  // Extrair números da quantidade e escalar
+  return quantity.replace(/(\d+)/g, (match) => {
+    const num = parseInt(match)
+    const scaled = Math.round(num * factor)
+    return scaled.toString()
+  })
 }
 
 // Ajusta o número de refeições

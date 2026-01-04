@@ -284,10 +284,47 @@ export function DietView() {
     }
   }
 
-  // Aplicar troca de alimento (apenas visual, não persiste)
+  // Aplicar troca de alimento na dieta
   const applySwap = () => {
-    // Por enquanto apenas fecha o modal
-    // Em uma implementação completa, salvaria a alteração no banco
+    if (!swapSuggestion || swapMealIndex === null || swapFoodIndex === null || !currentDiet) return
+
+    // Encontrar o dia selecionado
+    const dayIndex = currentDiet.days.findIndex(d => d.dayOfWeek === selectedDay)
+    if (dayIndex === -1) return
+
+    // Clonar a dieta para não modificar o estado diretamente
+    const updatedDiet = JSON.parse(JSON.stringify(currentDiet))
+    const day = updatedDiet.days[dayIndex]
+    const meal = day.meals[swapMealIndex]
+    const oldFood = meal.foods[swapFoodIndex]
+
+    // Substituir o alimento
+    meal.foods[swapFoodIndex] = {
+      name: swapSuggestion.name,
+      quantity: swapSuggestion.quantity,
+      calories: swapSuggestion.calories,
+      protein: swapSuggestion.protein,
+      carbs: swapSuggestion.carbs,
+      fat: swapSuggestion.fat,
+      alternatives: []
+    }
+
+    // Recalcular totais da refeição
+    meal.totalCalories = meal.foods.reduce((sum: number, f: FoodItem) => sum + f.calories, 0)
+    meal.totalProtein = meal.foods.reduce((sum: number, f: FoodItem) => sum + f.protein, 0)
+    meal.totalCarbs = meal.foods.reduce((sum: number, f: FoodItem) => sum + f.carbs, 0)
+    meal.totalFat = meal.foods.reduce((sum: number, f: FoodItem) => sum + f.fat, 0)
+
+    // Recalcular totais do dia
+    day.totalCalories = day.meals.reduce((sum: number, m: Meal) => sum + m.totalCalories, 0)
+    day.totalProtein = day.meals.reduce((sum: number, m: Meal) => sum + m.totalProtein, 0)
+    day.totalCarbs = day.meals.reduce((sum: number, m: Meal) => sum + m.totalCarbs, 0)
+    day.totalFat = day.meals.reduce((sum: number, m: Meal) => sum + m.totalFat, 0)
+
+    // Atualizar o estado da dieta
+    dispatch({ type: 'SET_WEEKLY_DIET', payload: updatedDiet })
+
+    // Fechar modal
     setShowSwapModal(false)
     setSwapSuggestion(null)
     setSwapRequest('')
