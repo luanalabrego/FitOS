@@ -12,3 +12,6 @@ export * from './profile'
 
 // Home Components
 export { QuickMealSection } from './home/QuickMealSection'
+
+// Gamification Components
+export * from './gamification'
