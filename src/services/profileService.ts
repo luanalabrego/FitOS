@@ -10,6 +10,38 @@ import { getFirebaseDb, isFirebaseConfigured } from '@/lib/firebase'
 import { UserProfile, ProfilePhoto } from '@/types/profile'
 
 const COLLECTION_NAME = 'profiles'
+const LOCAL_STORAGE_KEY = 'fitos_profile_'
+
+// Salvar no localStorage como backup
+function saveToLocalStorage(userId: string, profile: Partial<UserProfile>): void {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}${userId}`, JSON.stringify(profile))
+    } catch (e) {
+      console.warn('Erro ao salvar no localStorage:', e)
+    }
+  }
+}
+
+// Ler do localStorage
+function getFromLocalStorage(userId: string): Partial<UserProfile> | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(`${LOCAL_STORAGE_KEY}${userId}`)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        // Converter strings de data de volta para Date
+        if (parsed.createdAt) parsed.createdAt = new Date(parsed.createdAt)
+        if (parsed.updatedAt) parsed.updatedAt = new Date(parsed.updatedAt)
+        if (parsed.targetDate) parsed.targetDate = new Date(parsed.targetDate)
+        return parsed
+      }
+    } catch (e) {
+      console.warn('Erro ao ler do localStorage:', e)
+    }
+  }
+  return null
+}
 
 /**
  * Remove recursivamente todos os valores undefined de um objeto
@@ -132,13 +164,15 @@ function deserializeProfile(data: Record<string, unknown>): Partial<UserProfile>
 }
 
 /**
- * Buscar perfil do usuário no Firestore
+ * Buscar perfil do usuário no Firestore (com fallback para localStorage)
  */
 export async function getProfile(userId: string): Promise<Partial<UserProfile> | null> {
   const db = getFirebaseDb()
+
+  // Se Firebase não está disponível, usar localStorage
   if (!db) {
-    console.warn('Firestore não disponível')
-    return null
+    console.warn('Firestore não disponível, usando localStorage')
+    return getFromLocalStorage(userId)
   }
 
   try {
@@ -146,13 +180,18 @@ export async function getProfile(userId: string): Promise<Partial<UserProfile> |
     const docSnap = await getDoc(docRef)
 
     if (docSnap.exists()) {
-      return deserializeProfile(docSnap.data())
+      const profile = deserializeProfile(docSnap.data())
+      // Salvar no localStorage como backup
+      saveToLocalStorage(userId, profile)
+      return profile
     }
 
-    return null
+    // Se não encontrou no Firebase, tentar localStorage
+    return getFromLocalStorage(userId)
   } catch (error) {
     console.error('Erro ao buscar perfil:', error)
-    throw error
+    // Em caso de erro, tentar localStorage
+    return getFromLocalStorage(userId)
   }
 }
 
@@ -163,9 +202,12 @@ export async function saveProfile(
   userId: string,
   profile: Partial<UserProfile>
 ): Promise<void> {
+  // Sempre salvar no localStorage como backup
+  saveToLocalStorage(userId, { ...profile, id: userId, updatedAt: new Date() })
+
   const db = getFirebaseDb()
   if (!db) {
-    console.warn('Firestore não disponível - dados não foram salvos na nuvem')
+    console.warn('Firestore não disponível - dados salvos apenas no localStorage')
     return
   }
 
@@ -183,8 +225,8 @@ export async function saveProfile(
       { merge: true }
     )
   } catch (error) {
-    console.error('Erro ao salvar perfil:', error)
-    throw error
+    console.error('Erro ao salvar perfil no Firebase:', error)
+    // Dados já foram salvos no localStorage, não precisamos lançar erro
   }
 }
 
@@ -195,9 +237,13 @@ export async function updateProfile(
   userId: string,
   updates: Partial<UserProfile>
 ): Promise<void> {
+  // Atualizar localStorage primeiro
+  const existing = getFromLocalStorage(userId) || {}
+  saveToLocalStorage(userId, { ...existing, ...updates, updatedAt: new Date() })
+
   const db = getFirebaseDb()
   if (!db) {
-    console.warn('Firestore não disponível')
+    console.warn('Firestore não disponível - dados atualizados apenas no localStorage')
     return
   }
 
@@ -210,8 +256,7 @@ export async function updateProfile(
       updatedAt: serverTimestamp(),
     })
   } catch (error) {
-    console.error('Erro ao atualizar perfil:', error)
-    throw error
+    console.error('Erro ao atualizar perfil no Firebase:', error)
   }
 }
 
@@ -219,28 +264,29 @@ export async function updateProfile(
  * Criar perfil inicial para novo usuário
  */
 export async function createProfile(userId: string, name?: string): Promise<void> {
+  const initialProfile: Partial<UserProfile> = {
+    id: userId,
+    name: name || '',
+    progressPhotos: [],
+    onboardingCompleted: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  // Sempre salvar no localStorage
+  saveToLocalStorage(userId, initialProfile)
+
   const db = getFirebaseDb()
   if (!db) {
-    console.warn('Firestore não disponível')
+    console.warn('Firestore não disponível - perfil criado apenas no localStorage')
     return
   }
 
   try {
     const docRef = doc(db, COLLECTION_NAME, userId)
-
-    const initialProfile: Partial<UserProfile> = {
-      id: userId,
-      name: name || '',
-      progressPhotos: [],
-      onboardingCompleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-
     await setDoc(docRef, serializeProfile(initialProfile))
   } catch (error) {
-    console.error('Erro ao criar perfil:', error)
-    throw error
+    console.error('Erro ao criar perfil no Firebase:', error)
   }
 }
 
@@ -248,6 +294,12 @@ export async function createProfile(userId: string, name?: string): Promise<void
  * Verificar se o perfil existe
  */
 export async function profileExists(userId: string): Promise<boolean> {
+  // Verificar localStorage primeiro
+  const localProfile = getFromLocalStorage(userId)
+  if (localProfile) {
+    return true
+  }
+
   const db = getFirebaseDb()
   if (!db) {
     return false
