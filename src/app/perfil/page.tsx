@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ProfileProvider } from '@/contexts/ProfileContext'
-import { ProfileWizard } from '@/components/profile'
+import { ProfileWizardGamified } from '@/components/profile'
 
 export default function PerfilPage() {
   const router = useRouter()
@@ -15,7 +15,7 @@ export default function PerfilPage() {
 
   return (
     <ProfileProvider>
-      <ProfileWizard onComplete={handleComplete} />
+      <ProfileWizardGamified onComplete={handleComplete} />
     </ProfileProvider>
   )
 }
